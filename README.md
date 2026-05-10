@@ -36,16 +36,15 @@ cp .env.example .env
 # paste your GROQ_API_KEY into .env
 ```
 
-Then run with the Vercel CLI so the `/api/tailor` function works locally:
+Then run the dev server:
 
 ```bash
-npm install -g vercel
-vercel dev
+npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:5173`. Vite serves the React UI, and a custom plugin (in `vite.config.js`) routes `/api/*` requests through the Vercel-style functions in `api/`. No need for `vercel dev` or any extra CLI.
 
-> If you only want to render the UI (no API calls), `npm run dev` runs Vite alone on port 5173 — but the form submit will fail because there's no API.
+> The same `api/*.js` files run unchanged on Vercel in production — the plugin only kicks in during dev.
 
 ---
 

@@ -2,11 +2,12 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 /**
- * Custom Vite plugin: makes `/api/*.js` files in this repo behave like Vercel
- * Serverless Functions during `npm run dev`. We don't need `vercel dev` locally.
+ * Custom Vite plugin: makes /api/*.js files behave like Vercel Serverless
+ * Functions during `npm run dev` — including streaming responses.
  *
- * In production, Vercel still picks up `api/*.js` automatically — this plugin
- * only runs in dev mode.
+ * For streaming endpoints, the handler can call res.write() directly on the
+ * Node ServerResponse; we don't capture the body, so chunks flow straight
+ * through to the browser.
  */
 const vercelStyleApiPlugin = () => ({
   name: 'vercel-style-api',
@@ -14,7 +15,6 @@ const vercelStyleApiPlugin = () => ({
     server.middlewares.use(async (req, res, next) => {
       if (!req.url || !req.url.startsWith('/api/')) return next();
 
-      // Parse JSON body for POST/PUT/PATCH requests
       if (req.method && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
         let raw = '';
         for await (const chunk of req) raw += chunk;
@@ -28,7 +28,6 @@ const vercelStyleApiPlugin = () => ({
         }
       }
 
-      // Build a Vercel-flavoured `res` shim around Node's IncomingMessage/ServerResponse.
       const vercelRes = Object.assign(res, {
         status(code) {
           this.statusCode = code;
@@ -46,12 +45,10 @@ const vercelStyleApiPlugin = () => ({
         },
       });
 
-      // Resolve the function file from the URL — strip query string + leading slash.
       const route = req.url.split('?')[0].replace(/^\//, '');
       const filePath = `${process.cwd()}/${route}.js`;
 
       try {
-        // Dynamic import so edits to the handler hot-reload.
         const mod = await server.ssrLoadModule(filePath);
         const handler = mod.default;
         if (typeof handler !== 'function') {
@@ -66,7 +63,6 @@ const vercelStyleApiPlugin = () => ({
           res.end(
             JSON.stringify({
               error: err?.message || 'API handler crashed.',
-              stack: err?.stack,
             })
           );
         }
@@ -76,15 +72,10 @@ const vercelStyleApiPlugin = () => ({
 });
 
 export default defineConfig(({ mode }) => {
-  // Load .env / .env.local etc. into process.env so the API handler sees GROQ_API_KEY.
-  // Empty prefix string means "load every variable", not just VITE_*.
   const env = loadEnv(mode, process.cwd(), '');
   process.env = { ...process.env, ...env };
-
   return {
     plugins: [react(), vercelStyleApiPlugin()],
-    server: {
-      port: 5173,
-    },
+    server: { port: 5173 },
   };
 });

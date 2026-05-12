@@ -1,19 +1,24 @@
 {
   "name": "ai-resume-tailor",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
-  "description": "Paste a resume and a job description, get tailored bullet rewrites, ATS keyword gaps, and likely interview questions back. Built on the Groq API (Llama 3.3 70B).",
+  "description": "Paste a resume and a job description, get streaming tailored bullet rewrites, ATS keyword gaps, and likely interview questions back. Built on Groq Llama 3.3 70B.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "dev:api": "vercel dev"
+    "preview": "vite preview"
   },
   "dependencies": {
+    "framer-motion": "^11.3.19",
     "groq-sdk": "^0.7.0",
+    "lucide-react": "^0.408.0",
+    "partial-json": "^0.1.7",
+    "pdfjs-dist": "^4.4.168",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-hot-toast": "^2.4.1",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",

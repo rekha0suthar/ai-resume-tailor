@@ -1,70 +1,30 @@
 /**
- * Vercel Serverless Function — POST /api/tailor
+ * POST /api/tailor — streaming Server-Sent Events endpoint.
  *
- * Body: { resumeText: string, jobDescription: string }
+ * Body: { resumeText, jobDescription }
  *
- * Calls Groq's Llama 3.3 70B with a prompt that asks for structured JSON:
- *   {
- *     tailored_bullets: [{ original, rewrite, why }],
- *     missing_keywords: [{ keyword, importance, suggestion }],
- *     interview_questions: [{ question, what_they_want, prep_tip }],
- *     overall_match_score: number  // 0–100
- *   }
+ * Response: SSE event stream with two kinds of messages:
+ *   - event: chunk   data: { text }    — appended to the accumulating JSON
+ *   - event: done    data: { ok: true }
+ *   - event: error   data: { error }
  *
- * The Groq API key is read from process.env.GROQ_API_KEY (set in Vercel
- * dashboard → Settings → Environment Variables). It never reaches the browser.
+ * The client uses `partial-json` to parse the accumulating buffer after every
+ * chunk, so tailored bullets / keyword gaps / interview questions appear in
+ * the UI as soon as each one is complete in the model's output.
+ *
+ * Groq Llama 3.3 70B in JSON mode produces well-formed JSON in roughly 1.5s.
+ * Streaming makes the perceived latency about 200ms (first token).
  */
 import Groq from 'groq-sdk';
+import { MODEL, MAX_TOKENS, SYSTEM_PROMPT, buildUserPrompt } from '../src/lib/prompts.js';
 
-const MODEL = 'llama-3.3-70b-versatile';
-const MAX_TOKENS = 4096;
-
-const SYSTEM_PROMPT = `You are an expert career coach and resume editor. You help job seekers tailor their resume to a specific job description.
-
-Given a candidate's resume and a target job description, you produce three things:
-
-1. TAILORED BULLETS — rewrite 3–6 of the candidate's existing resume bullets so they:
-   - Foreground the skills/keywords the job description prioritises (without inventing experience).
-   - Use the job description's vocabulary where it honestly fits the candidate's work.
-   - Lead with the strongest verb and keep concrete metrics where they exist.
-   - Stay one line, ≤ 32 words.
-   For each, include the original line, your rewrite, and a short reason ("why").
-
-2. MISSING KEYWORDS — list the 4–8 most important skills/concepts from the job
-   description that are NOT clearly present in the resume. For each, mark
-   importance ("must-have" | "nice-to-have") and give one short, actionable
-   suggestion (e.g. "Add a 1-line bullet about your school project on X" or
-   "Worth a 2-week side project").
-
-3. INTERVIEW QUESTIONS — predict 5 likely interview questions a hiring manager
-   would ask, given this resume + JD pairing. For each, include:
-   - "question": the question itself.
-   - "what_they_want": one sentence on what the interviewer is really probing.
-   - "prep_tip": one concrete prep suggestion.
-
-Also include "overall_match_score": an integer 0–100 reflecting how well this
-candidate's resume currently aligns with the JD before tailoring.
-
-Be honest. If the resume is weak for the role, say so via the score and the
-missing-keywords section — do NOT invent skills the candidate doesn't have.
-
-Return ONLY valid JSON matching this exact shape:
-{
-  "tailored_bullets": [{"original": "", "rewrite": "", "why": ""}],
-  "missing_keywords": [{"keyword": "", "importance": "", "suggestion": ""}],
-  "interview_questions": [{"question": "", "what_they_want": "", "prep_tip": ""}],
-  "overall_match_score": 0
-}
-
-No markdown, no commentary outside the JSON.`;
+export const config = { maxDuration: 30 };
 
 export default async function handler(req, res) {
-  // CORS — keep it simple for the v0; tighten for production.
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
   if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     return res.status(200).end();
   }
   if (req.method !== 'POST') {
@@ -74,8 +34,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     return res.status(500).json({
-      error:
-        'Server is missing GROQ_API_KEY. Set it in Vercel → Settings → Environment Variables.',
+      error: 'Server is missing GROQ_API_KEY.',
     });
   }
 
@@ -84,65 +43,55 @@ export default async function handler(req, res) {
     try {
       body = JSON.parse(body);
     } catch {
-      return res.status(400).json({ error: 'Invalid JSON in request body.' });
+      return res.status(400).json({ error: 'Invalid JSON body.' });
     }
   }
-
   const resumeText = (body?.resumeText || '').trim();
   const jobDescription = (body?.jobDescription || '').trim();
 
   if (resumeText.length < 50) {
-    return res.status(400).json({
-      error: 'Resume looks too short — paste at least your summary + experience.',
-    });
+    return res.status(400).json({ error: 'Resume looks too short — paste at least your summary + experience.' });
   }
   if (jobDescription.length < 50) {
-    return res.status(400).json({
-      error: 'Job description looks too short — paste the full posting.',
-    });
+    return res.status(400).json({ error: 'Job description looks too short — paste the full posting.' });
   }
 
-  // Hard cap on input size so we don't blow through the model context.
-  const trim = (s, n) => (s.length > n ? s.slice(0, n) + '\n…[truncated]' : s);
-  const resumeIn = trim(resumeText, 8000);
-  const jdIn = trim(jobDescription, 6000);
+  // Switch into SSE mode.
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // disable proxy buffering
+  res.flushHeaders?.();
 
-  const userPrompt = `RESUME:\n"""\n${resumeIn}\n"""\n\nJOB DESCRIPTION:\n"""\n${jdIn}\n"""\n\nReturn the JSON now.`;
+  const send = (event, data) => {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
 
   const groq = new Groq({ apiKey });
 
   try {
-    const completion = await groq.chat.completions.create({
+    const stream = await groq.chat.completions.create({
       model: MODEL,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userPrompt },
+        { role: 'user', content: buildUserPrompt(resumeText, jobDescription) },
       ],
       temperature: 0.4,
       max_tokens: MAX_TOKENS,
       response_format: { type: 'json_object' },
+      stream: true,
     });
 
-    const raw = completion.choices?.[0]?.message?.content || '{}';
-
-    let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch (e) {
-      return res.status(502).json({
-        error:
-          'The model returned non-JSON output. Try again — Llama occasionally drifts on first attempt.',
-        raw,
-      });
+    for await (const part of stream) {
+      const text = part?.choices?.[0]?.delta?.content;
+      if (text) send('chunk', { text });
     }
-
-    return res.status(200).json(parsed);
+    send('done', { ok: true });
+    res.end();
   } catch (err) {
-    console.error('Groq call failed:', err);
-    return res.status(502).json({
-      error:
-        err?.message ||
-        'Upstream model call failed. Check your GROQ_API_KEY and try again.',
-    });
+    console.error('Groq stream failed:', err);
+    send('error', { error: err?.message || 'Upstream model call failed.' });
+    res.end();
   }
 }

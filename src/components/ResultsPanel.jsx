@@ -1,164 +1,267 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Copy, Check, Pencil, Target, KeyRound, MessageSquare } from 'lucide-react';
+import toast from 'react-hot-toast';
 
-const Section = ({ title, eyebrow, children }) => (
-  <section className="fade-in-up rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
-    {eyebrow && (
-      <span className="mb-2 inline-block text-xs font-semibold uppercase tracking-widest text-accent">
-        {eyebrow}
-      </span>
-    )}
-    <h2 className="mb-4 text-xl font-bold text-white sm:text-2xl">{title}</h2>
+const fadeIn = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -4 },
+  transition: { duration: 0.25 },
+};
+
+const Section = ({ icon: Icon, title, eyebrow, count, children }) => (
+  <motion.section
+    {...fadeIn}
+    layout
+    className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6"
+  >
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <div>
+        {eyebrow && (
+          <span className="mb-1 inline-block text-xs font-semibold uppercase tracking-widest text-accent">
+            {eyebrow}
+          </span>
+        )}
+        <h2 className="flex items-center gap-2 text-xl font-bold text-white sm:text-2xl">
+          <Icon size={20} className="text-accent" />
+          {title}
+        </h2>
+      </div>
+      {typeof count === 'number' && count > 0 && (
+        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs font-semibold text-slate-300">
+          {count}
+        </span>
+      )}
+    </div>
     {children}
-  </section>
+  </motion.section>
 );
 
-const importanceColors = {
+const Score = ({ score, streaming }) => {
+  const s = Number(score) || 0;
+  const color = s >= 75 ? 'text-emerald-300' : s >= 50 ? 'text-amber-300' : 'text-rose-300';
+  return (
+    <motion.div {...fadeIn} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4">
+      <div>
+        <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+          Match score (before tailoring)
+        </span>
+        <div className="mt-1 flex items-baseline gap-2">
+          <span className={`text-3xl font-bold ${color}`}>{s}</span>
+          <span className="text-sm text-slate-500">/ 100</span>
+        </div>
+      </div>
+      {streaming && (
+        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+          </span>
+          Streaming
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+const BulletCard = ({ bullet, index }) => {
+  const [editValue, setEditValue] = useState(bullet.rewrite || '');
+  const [editing, setEditing] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Keep editValue in sync if the bullet streams in further updates
+  useEffect(() => {
+    if (!editing) setEditValue(bullet.rewrite || '');
+  }, [bullet.rewrite, editing]);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(editValue);
+      setCopied(true);
+      toast.success('Rewrite copied');
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      toast.error('Could not copy.');
+    }
+  };
+
+  return (
+    <motion.li
+      layout
+      {...fadeIn}
+      transition={{ duration: 0.3, delay: index * 0.04 }}
+      className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
+    >
+      {bullet.original && (
+        <>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            Original
+          </span>
+          <p className="mt-1 text-sm text-slate-400 line-through decoration-slate-500/40">
+            {bullet.original}
+          </p>
+        </>
+      )}
+
+      <div className="mt-3 flex items-baseline justify-between gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
+          Rewrite
+        </span>
+        <div className="flex items-center gap-2">
+          {!editing ? (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-slate-300 hover:text-white"
+            >
+              <Pencil size={11} /> Edit
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="text-[11px] font-semibold uppercase tracking-wider text-accent hover:text-accent-bright"
+            >
+              Done
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={copy}
+            className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-accent hover:text-accent-bright"
+          >
+            {copied ? <Check size={11} /> : <Copy size={11} />} {copied ? 'Copied' : 'Copy'}
+          </button>
+        </div>
+      </div>
+
+      {editing ? (
+        <textarea
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          rows={3}
+          className="mt-1 w-full resize-y rounded-lg border border-white/15 bg-white/[0.06] px-3 py-2 text-sm text-white focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/30"
+        />
+      ) : (
+        <p className="mt-1 text-sm text-white">{editValue}</p>
+      )}
+
+      {bullet.why && (
+        <p className="mt-2 text-xs italic text-slate-400">Why: {bullet.why}</p>
+      )}
+    </motion.li>
+  );
+};
+
+const importanceClasses = {
   'must-have': 'bg-red-500/15 text-red-200 border-red-400/40',
   'nice-to-have': 'bg-yellow-500/15 text-yellow-200 border-yellow-400/40',
 };
 
-const Score = ({ score }) => {
-  const s = Number(score) || 0;
-  const color =
-    s >= 75 ? 'text-emerald-300' : s >= 50 ? 'text-amber-300' : 'text-rose-300';
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
-      <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-        Match score
-      </span>
-      <span className={`text-2xl font-bold ${color}`}>{s}/100</span>
-      <span className="text-xs text-slate-400">(before tailoring)</span>
-    </div>
-  );
-};
-
-const CopyButton = ({ text }) => {
-  const [done, setDone] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setDone(true);
-      setTimeout(() => setDone(false), 1500);
-    } catch {
-      /* ignore */
-    }
-  };
-  return (
-    <button
-      onClick={copy}
-      className="text-[11px] font-semibold uppercase tracking-wider text-accent hover:text-accent-bright"
-      type="button"
-    >
-      {done ? 'Copied ✓' : 'Copy'}
-    </button>
-  );
-};
-
-const ResultsPanel = ({ result }) => {
+const ResultsPanel = ({ result, status }) => {
+  const streaming = status === 'streaming';
   const bullets = result?.tailored_bullets || [];
   const keywords = result?.missing_keywords || [];
   const questions = result?.interview_questions || [];
+  const hasAny = bullets.length || keywords.length || questions.length || result?.overall_match_score;
+  if (!hasAny && !streaming) return null;
 
   return (
     <div className="mt-8 grid gap-5 sm:gap-6">
-      {typeof result?.overall_match_score !== 'undefined' && (
-        <Score score={result.overall_match_score} />
-      )}
+      <AnimatePresence mode="popLayout">
+        {(typeof result?.overall_match_score === 'number' && result.overall_match_score > 0) && (
+          <Score key="score" score={result.overall_match_score} streaming={streaming} />
+        )}
 
-      {bullets.length > 0 && (
-        <Section title="Tailored bullets" eyebrow="Rewrite suggestions">
-          <ul className="grid gap-4">
-            {bullets.map((b, i) => (
-              <li
-                key={i}
-                className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
-              >
-                <div className="mb-1 flex items-baseline justify-between gap-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Original
-                  </span>
-                </div>
-                <p className="text-sm text-slate-400 line-through decoration-slate-500/50">
-                  {b.original}
-                </p>
+        {bullets.length > 0 && (
+          <Section key="bullets" icon={Target} title="Tailored bullets" eyebrow="Rewrite suggestions" count={bullets.length}>
+            <ul className="grid gap-4">
+              <AnimatePresence>
+                {bullets.map((b, i) => (
+                  <BulletCard key={`${i}-${b.original?.slice(0, 24)}`} bullet={b} index={i} />
+                ))}
+              </AnimatePresence>
+            </ul>
+          </Section>
+        )}
 
-                <div className="mt-3 mb-1 flex items-baseline justify-between gap-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">
-                    Rewrite
-                  </span>
-                  <CopyButton text={b.rewrite} />
-                </div>
-                <p className="text-sm text-white">{b.rewrite}</p>
+        {keywords.length > 0 && (
+          <Section key="keywords" icon={KeyRound} title="Missing keywords" eyebrow="Gap analysis" count={keywords.length}>
+            <ul className="grid gap-3">
+              <AnimatePresence>
+                {keywords.map((k, i) => (
+                  <motion.li
+                    key={`${i}-${k.keyword}`}
+                    layout
+                    {...fadeIn}
+                    transition={{ duration: 0.25, delay: i * 0.04 }}
+                    className="flex flex-col gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:flex-row sm:items-start sm:gap-4"
+                  >
+                    <span
+                      className={`shrink-0 self-start rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                        importanceClasses[k.importance] || 'border-white/20 bg-white/5 text-slate-300'
+                      }`}
+                    >
+                      {k.importance || 'optional'}
+                    </span>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-white">{k.keyword}</p>
+                      {k.suggestion && (
+                        <p className="mt-1 text-xs text-slate-400">{k.suggestion}</p>
+                      )}
+                    </div>
+                  </motion.li>
+                ))}
+              </AnimatePresence>
+            </ul>
+          </Section>
+        )}
 
-                {b.why && (
-                  <p className="mt-2 text-xs italic text-slate-400">
-                    Why: {b.why}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
+        {questions.length > 0 && (
+          <Section key="questions" icon={MessageSquare} title="Likely interview questions" eyebrow="Prep ahead" count={questions.length}>
+            <ol className="grid gap-4">
+              <AnimatePresence>
+                {questions.map((q, i) => (
+                  <motion.li
+                    key={`${i}-${q.question?.slice(0, 24)}`}
+                    layout
+                    {...fadeIn}
+                    transition={{ duration: 0.25, delay: i * 0.04 }}
+                    className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
+                  >
+                    <p className="text-sm font-semibold text-white">
+                      {i + 1}. {q.question}
+                    </p>
+                    {q.what_they_want && (
+                      <p className="mt-2 text-xs text-slate-400">
+                        <span className="font-semibold text-slate-300">What they're probing:</span> {q.what_they_want}
+                      </p>
+                    )}
+                    {q.prep_tip && (
+                      <p className="mt-1 text-xs text-slate-400">
+                        <span className="font-semibold text-slate-300">Prep tip:</span> {q.prep_tip}
+                      </p>
+                    )}
+                  </motion.li>
+                ))}
+              </AnimatePresence>
+            </ol>
+          </Section>
+        )}
 
-      {keywords.length > 0 && (
-        <Section title="Missing keywords" eyebrow="Gap analysis">
-          <ul className="grid gap-3">
-            {keywords.map((k, i) => (
-              <li
-                key={i}
-                className="flex flex-col gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:flex-row sm:items-start sm:gap-4"
-              >
-                <span
-                  className={`shrink-0 self-start rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                    importanceColors[k.importance] ||
-                    'border-white/20 bg-white/5 text-slate-300'
-                  }`}
-                >
-                  {k.importance || 'optional'}
-                </span>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-white">{k.keyword}</p>
-                  {k.suggestion && (
-                    <p className="mt-1 text-xs text-slate-400">{k.suggestion}</p>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
-
-      {questions.length > 0 && (
-        <Section title="Likely interview questions" eyebrow="Prep ahead">
-          <ol className="grid gap-4">
-            {questions.map((q, i) => (
-              <li
-                key={i}
-                className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
-              >
-                <p className="text-sm font-semibold text-white">
-                  {i + 1}. {q.question}
-                </p>
-                {q.what_they_want && (
-                  <p className="mt-2 text-xs text-slate-400">
-                    <span className="font-semibold text-slate-300">
-                      What they're probing:
-                    </span>{' '}
-                    {q.what_they_want}
-                  </p>
-                )}
-                {q.prep_tip && (
-                  <p className="mt-1 text-xs text-slate-400">
-                    <span className="font-semibold text-slate-300">Prep tip:</span>{' '}
-                    {q.prep_tip}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ol>
-        </Section>
-      )}
+        {streaming && !hasAny && (
+          <motion.div
+            key="skeleton"
+            {...fadeIn}
+            className="grid gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-6"
+          >
+            <div className="h-3 w-1/2 animate-pulse rounded bg-white/10" />
+            <div className="h-3 w-3/4 animate-pulse rounded bg-white/10" />
+            <div className="h-3 w-2/3 animate-pulse rounded bg-white/10" />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

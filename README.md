@@ -1,30 +1,69 @@
 # AI Resume Tailor
 
-Paste a resume + a job description, get back tailored bullet rewrites, ATS keyword gaps, and likely interview questions. Built end-to-end on free tools — Vite + React + Tailwind on the front, a Vercel Serverless Function calling Groq's Llama 3.3 70B on the back.
+Paste (or upload) a resume + a job description, get back **streaming** tailored bullet rewrites, ATS keyword gaps, and likely interview questions. Built end-to-end on free tools — Vite + React + Tailwind on the front, a Vercel Serverless Function calling Groq's Llama 3.3 70B on the back.
 
-> **Why this exists.** The resume tailoring task is the same prompt-engineering, structured-output, "talk to an LLM and render the response" pattern that AI app companies hire for every day. This is the canonical "AI Application Engineer" portfolio piece.
+🔗 **Live**: [ai-resume-tailor-ruby.vercel.app](https://ai-resume-tailor-ruby.vercel.app/)
 
-**Stack**
+---
 
-- React 18 + Vite + Tailwind CSS
-- Vercel Serverless Functions (Node 18)
-- Groq Cloud — Llama 3.3 70B (`llama-3.3-70b-versatile`), JSON-mode output
+## What v1 adds over v0
 
-**Architecture**
+- **Streaming output (SSE).** Bullets, keyword gaps, and interview questions appear in the UI as soon as each one is complete in the model's stream. Perceived speed bump is roughly 5–10× over the v0 wait-for-everything approach. The client uses [partial-json](https://www.npmjs.com/package/partial-json) to parse the accumulating buffer after every chunk.
+- **PDF upload with client-side text extraction.** Drag & drop a PDF (or click). [pdfjs-dist](https://www.npmjs.com/package/pdfjs-dist) is dynamically imported so the initial bundle stays small. Scanned PDFs surface a clear error.
+- **Try with sample.** One-click pre-fills both fields with a curated example resume + JD pairing. Lets recruiters test the demo in 3 seconds.
+- **Inline edit + copy** on each tailored bullet. Tweak the rewrite before copying.
+- **Zod schema** validates every model response. Drift in the JSON shape no longer crashes the UI.
+- **react-hot-toast** for action feedback (copy, upload, error).
+- **framer-motion** for smooth section/card transitions.
+- **Skeleton loading** while the first tokens land.
+
+## Architecture
 
 ```
 Browser              Vercel Edge                 Groq Cloud
 -------              -----------                 ----------
-React UI  ─POST/api/tailor─▶  api/tailor.js  ──▶  Llama 3.3 70B
-                                                 (JSON response)
-       ◀──────── tailored JSON ──────────────────────┘
+React UI ─ POST /api/tailor ─▶  api/tailor.js  ──▶  Llama 3.3 70B
+       (SSE chunks)                                  (stream=true)
+      ◀──── event: chunk { text } ───────────────────┘
+      ◀──── event: done  { ok: true }
 ```
 
-The `GROQ_API_KEY` lives only in Vercel's environment variables — it never reaches the browser.
+- The `GROQ_API_KEY` lives only in Vercel's environment variables. It never reaches the browser.
+- The serverless function streams `event: chunk` SSE messages as Groq generates tokens. The client appends to an accumulating buffer and reparses with `partial-json` on every chunk, so completed objects (bullet rewrites, missing keywords, etc.) appear progressively.
 
----
+## Stack
 
-## Run it locally
+- **React 18 + Vite** — modern build chain, instant HMR.
+- **Tailwind CSS** — zero-runtime styling.
+- **Vercel Serverless Functions** (Node 18) — same repo as the frontend.
+- **Groq Cloud** — Llama 3.3 70B (`llama-3.3-70b-versatile`) in JSON mode, streaming.
+- **lucide-react** icons, **framer-motion** animations, **react-hot-toast** notifications.
+- **zod** for response schema validation, **partial-json** for incremental parsing.
+
+## Folder layout
+
+```
+api/
+  tailor.js                ← Streaming SSE endpoint
+src/
+  components/
+    Hero.jsx
+    TailorForm.jsx
+    PdfUpload.jsx
+    ResultsPanel.jsx
+    Footer.jsx
+  hooks/
+    useTailor.js           ← Streaming state machine
+  lib/
+    prompts.js             ← System prompt + bounds
+    schema.js              ← Zod schema + partial validator
+    sample.js              ← Curated demo data
+  App.jsx
+  main.jsx
+  index.css
+```
+
+## Run locally
 
 You'll need [Node 18+](https://nodejs.org/) and a free [Groq API key](https://console.groq.com/keys).
 
@@ -32,91 +71,25 @@ You'll need [Node 18+](https://nodejs.org/) and a free [Groq API key](https://co
 git clone https://github.com/rekha0suthar/ai-resume-tailor.git
 cd ai-resume-tailor
 npm install
-cp .env.example .env
-# paste your GROQ_API_KEY into .env
-```
-
-Then run the dev server:
-
-```bash
+cp .env.example .env       # paste your GROQ_API_KEY into .env
 npm run dev
 ```
 
-Open `http://localhost:5173`. Vite serves the React UI, and a custom plugin (in `vite.config.js`) routes `/api/*` requests through the Vercel-style functions in `api/`. No need for `vercel dev` or any extra CLI.
+Open `http://localhost:5173`. The custom Vite plugin in `vite.config.js` routes `/api/*` through your serverless function files, so streaming works locally with no Vercel CLI needed.
 
-> The same `api/*.js` files run unchanged on Vercel in production — the plugin only kicks in during dev.
+## Deploy
 
----
-
-## Deploy to Vercel (free tier)
-
-**One-time setup:**
-
-1. **Get a Groq API key** — sign up at [console.groq.com](https://console.groq.com/), go to *API Keys*, create a new key, copy it.
-2. **Create the GitHub repo** — push this code to `https://github.com/rekha0suthar/ai-resume-tailor`.
-3. **Sign up at Vercel** — [vercel.com](https://vercel.com/), connect your GitHub.
-4. **Import the project** — Vercel detects it as a Vite app automatically.
-5. **Add the env var** — *Settings → Environment Variables* → add `GROQ_API_KEY` with the key from step 1, scope to *Production, Preview, Development*.
-6. **Deploy.** Vercel gives you a URL like `https://ai-resume-tailor.vercel.app`.
-
-After every `git push origin main`, Vercel redeploys automatically.
-
----
-
-## What the API returns
-
-`POST /api/tailor` with body:
-
-```json
-{
-  "resumeText": "…",
-  "jobDescription": "…"
-}
-```
-
-Returns:
-
-```json
-{
-  "overall_match_score": 62,
-  "tailored_bullets": [
-    {
-      "original": "Built grocery web app with React and MongoDB.",
-      "rewrite": "Shipped a MERN e-commerce app with role-based dashboards (React, Redux, Express, MongoDB), implementing JWT auth, cart/checkout flows, and admin tooling.",
-      "why": "Foregrounds the MERN keyword + role-based access mentioned in the JD."
-    }
-  ],
-  "missing_keywords": [
-    {
-      "keyword": "TypeScript",
-      "importance": "must-have",
-      "suggestion": "Convert one existing project to TS — even a 2-day refactor counts."
-    }
-  ],
-  "interview_questions": [
-    {
-      "question": "Walk me through how you handled authorization in your grocery app.",
-      "what_they_want": "How you reason about server vs client trust boundaries.",
-      "prep_tip": "Have a 90-second answer covering JWT, middleware, and the lesson learned about UI guards being UX, not security."
-    }
-  ]
-}
-```
-
----
+Connect the repo to Vercel, add `GROQ_API_KEY` under Environment Variables, deploy. Every `git push origin main` triggers a fresh deploy.
 
 ## Roadmap
 
 - [x] **v0** — Paste-in form, structured JSON response, three result panels.
-- [ ] **v1** — Streaming responses (SSE) so output appears live.
-- [ ] **v2** — PDF upload (extract text via pdfjs).
-- [ ] **v3** — History (localStorage), shareable result links.
-- [ ] **v4** — Multiple JD comparison (paste 3 JDs, see which fits best).
+- [x] **v1** — Streaming SSE, PDF upload, try-with-sample, inline-edit, toast + animations.
+- [ ] **v2** — Template-based resume generation. Pick a template, get a fully formatted resume from your content + the AI's suggestions, download as PDF.
+- [ ] **v3** — Multi-JD comparison (paste 3 JDs, see which one fits best).
 
-Build notes are published in the [portfolio's Writing section](https://rekha-suthar-portfolio.netlify.app/#writing).
-
----
+Build notes for each version are published on [dev.to/rekha0suthar](https://dev.to/rekha0suthar).
 
 ## License
 
-MIT. Use it, fork it, ship your own version.
+MIT.

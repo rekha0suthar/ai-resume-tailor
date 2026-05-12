@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
+import { Wand2, FileUp } from 'lucide-react';
+import toast from 'react-hot-toast';
+import PdfUpload from './PdfUpload.jsx';
+import { SAMPLE_RESUME, SAMPLE_JD } from '../lib/sample.js';
 
-const Field = ({ label, hint, value, onChange, placeholder, rows = 12 }) => (
-  <label className="block">
-    <div className="mb-2 flex items-baseline justify-between">
+const Field = ({ label, hint, value, onChange, placeholder, rows = 12, extra }) => (
+  <div>
+    <div className="mb-2 flex items-baseline justify-between gap-3">
       <span className="text-sm font-semibold text-white">{label}</span>
-      {hint && <span className="text-xs text-slate-400">{hint}</span>}
+      <div className="flex items-center gap-3">
+        {extra}
+        {hint && <span className="text-xs text-slate-400">{hint}</span>}
+      </div>
     </div>
     <textarea
       value={value}
@@ -13,22 +20,31 @@ const Field = ({ label, hint, value, onChange, placeholder, rows = 12 }) => (
       rows={rows}
       className="w-full resize-y rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/30"
     />
-  </label>
+  </div>
 );
 
-const TailorForm = ({ onSubmit, status }) => {
+const TailorForm = ({ onSubmit, onReset, isStreaming }) => {
   const [resumeText, setResumeText] = useState('');
   const [jobDescription, setJobDescription] = useState('');
-  const isLoading = status === 'loading';
 
   const submit = (e) => {
     e.preventDefault();
-    if (isLoading) return;
-    onSubmit({ resumeText: resumeText.trim(), jobDescription: jobDescription.trim() });
+    if (isStreaming) return;
+    onSubmit({
+      resumeText: resumeText.trim(),
+      jobDescription: jobDescription.trim(),
+    });
+  };
+
+  const loadSample = () => {
+    setResumeText(SAMPLE_RESUME);
+    setJobDescription(SAMPLE_JD);
+    onReset?.();
+    toast.success('Loaded sample resume + JD. Hit Tailor to see it run.');
   };
 
   const canSubmit =
-    !isLoading && resumeText.trim().length >= 50 && jobDescription.trim().length >= 50;
+    !isStreaming && resumeText.trim().length >= 50 && jobDescription.trim().length >= 50;
 
   return (
     <form onSubmit={submit} className="grid gap-5 sm:gap-6">
@@ -38,6 +54,10 @@ const TailorForm = ({ onSubmit, status }) => {
         placeholder="Paste your resume in plain text — keep section headers (Summary, Experience, Projects, Education, Skills)."
         value={resumeText}
         onChange={setResumeText}
+        rows={10}
+        extra={
+          <PdfUpload onExtract={setResumeText} disabled={isStreaming} />
+        }
       />
       <Field
         label="Target job description"
@@ -45,20 +65,26 @@ const TailorForm = ({ onSubmit, status }) => {
         placeholder="Paste the full JD from LinkedIn / company careers page — responsibilities, requirements, nice-to-haves."
         value={jobDescription}
         onChange={setJobDescription}
-        rows={10}
+        rows={8}
       />
 
-      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-slate-400">
-          Min 50 characters in each field. The model occasionally drifts on
-          first try — re-submit if needed.
-        </p>
+      <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button
+          type="button"
+          onClick={loadSample}
+          disabled={isStreaming}
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:border-accent/40 hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <FileUp size={15} />
+          Try with sample
+        </button>
         <button
           type="submit"
           disabled={!canSubmit}
-          className="inline-flex items-center justify-center rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent/20 transition hover:bg-accent-bright disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent/20 transition hover:bg-accent-bright disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isLoading ? 'Tailoring…' : 'Tailor my resume →'}
+          <Wand2 size={15} />
+          {isStreaming ? 'Tailoring…' : 'Tailor my resume'}
         </button>
       </div>
     </form>

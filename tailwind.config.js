@@ -3,12 +3,14 @@ export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
+      screens: {
+        xs: '420px',
+      },
       colors: {
-        // Match the portfolio's palette so the two sites feel like a family.
         ink: {
-          900: '#0f2027',
-          800: '#142a4e',
-          700: '#1d3a6f',
+          900: '#0b1722',
+          800: '#112b46',
+          700: '#1a3766',
         },
         accent: {
           DEFAULT: '#4a9eff',

@@ -1,27 +1,35 @@
 import React, { useState } from 'react';
-import { Wand2, FileUp } from 'lucide-react';
+import { Wand2, FileUp, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PdfUpload from './PdfUpload.jsx';
 import { SAMPLE_RESUME, SAMPLE_JD } from '../lib/sample.js';
 
-const Field = ({ label, hint, value, onChange, placeholder, rows = 12, extra }) => (
-  <div>
-    <div className="mb-2 flex items-baseline justify-between gap-3">
-      <span className="text-sm font-semibold text-white">{label}</span>
-      <div className="flex items-center gap-3">
-        {extra}
-        {hint && <span className="text-xs text-slate-400">{hint}</span>}
+const MIN_CHARS = 50;
+
+const Field = ({ label, hint, value, onChange, placeholder, rows = 10, extra }) => {
+  const tooShort = value.trim().length > 0 && value.trim().length < MIN_CHARS;
+  return (
+    <div>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <label className="text-sm font-semibold text-white">{label}</label>
+        <div className="flex items-center gap-3 text-xs">
+          {extra}
+          <span className={tooShort ? 'text-amber-300' : 'text-slate-500'}>
+            {value.length.toLocaleString()} chars
+            {tooShort ? ' · need ≥50' : ''}
+          </span>
+        </div>
       </div>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={rows}
+        className="w-full resize-y rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-slate-100 placeholder:text-slate-500 transition focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/20"
+      />
     </div>
-    <textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={rows}
-      className="w-full resize-y rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/30"
-    />
-  </div>
-);
+  );
+};
 
 const TailorForm = ({ onSubmit, onReset, isStreaming }) => {
   const [resumeText, setResumeText] = useState('');
@@ -40,48 +48,66 @@ const TailorForm = ({ onSubmit, onReset, isStreaming }) => {
     setResumeText(SAMPLE_RESUME);
     setJobDescription(SAMPLE_JD);
     onReset?.();
-    toast.success('Loaded sample resume + JD. Hit Tailor to see it run.');
+    toast.success('Sample loaded — hit Tailor to see it run');
+  };
+
+  const clearAll = () => {
+    setResumeText('');
+    setJobDescription('');
+    onReset?.();
   };
 
   const canSubmit =
-    !isStreaming && resumeText.trim().length >= 50 && jobDescription.trim().length >= 50;
+    !isStreaming &&
+    resumeText.trim().length >= MIN_CHARS &&
+    jobDescription.trim().length >= MIN_CHARS;
 
   return (
-    <form onSubmit={submit} className="grid gap-5 sm:gap-6">
+    <form onSubmit={submit} className="glass rounded-2xl p-5 sm:p-7">
       <Field
         label="Your resume"
-        hint={`${resumeText.length} chars`}
-        placeholder="Paste your resume in plain text — keep section headers (Summary, Experience, Projects, Education, Skills)."
+        placeholder="Paste resume text — or drop a PDF using the upload button."
         value={resumeText}
         onChange={setResumeText}
-        rows={10}
-        extra={
-          <PdfUpload onExtract={setResumeText} disabled={isStreaming} />
-        }
+        rows={9}
+        extra={<PdfUpload onExtract={setResumeText} disabled={isStreaming} />}
       />
+      <div className="h-5" />
       <Field
         label="Target job description"
-        hint={`${jobDescription.length} chars`}
-        placeholder="Paste the full JD from LinkedIn / company careers page — responsibilities, requirements, nice-to-haves."
+        placeholder="Paste the full JD — responsibilities, requirements, nice-to-haves."
         value={jobDescription}
         onChange={setJobDescription}
-        rows={8}
+        rows={7}
       />
 
-      <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <button
-          type="button"
-          onClick={loadSample}
-          disabled={isStreaming}
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:border-accent/40 hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <FileUp size={15} />
-          Try with sample
-        </button>
+      <div className="mt-6 flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={loadSample}
+            disabled={isStreaming}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm font-medium text-slate-200 transition hover:border-accent/40 hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <FileUp size={14} />
+            Try sample
+          </button>
+          {(resumeText || jobDescription) && (
+            <button
+              type="button"
+              onClick={clearAll}
+              disabled={isStreaming}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-transparent px-2.5 py-2.5 text-sm font-medium text-slate-400 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RotateCcw size={14} />
+              Clear
+            </button>
+          )}
+        </div>
         <button
           type="submit"
           disabled={!canSubmit}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent/20 transition hover:bg-accent-bright disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent/25 transition hover:bg-accent-bright disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Wand2 size={15} />
           {isStreaming ? 'Tailoring…' : 'Tailor my resume'}

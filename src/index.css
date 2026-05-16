@@ -4,47 +4,76 @@
 
 :root {
   color-scheme: dark;
+  --grad-from: #0b1722;
+  --grad-via:  #112b46;
+  --grad-to:   #1a3766;
 }
 
-html,
-body,
-#root {
-  height: 100%;
-}
+html { scroll-behavior: smooth; }
+html, body, #root { height: 100%; }
 
 body {
-  background: linear-gradient(135deg, #0f2027 0%, #142a4e 55%, #1d3a6f 100%);
+  background:
+    radial-gradient(1100px 600px at 80% -10%, rgba(74,158,255,0.18), transparent 60%),
+    radial-gradient(800px 600px at -10% 10%, rgba(0,180,219,0.14), transparent 60%),
+    linear-gradient(135deg, var(--grad-from) 0%, var(--grad-via) 55%, var(--grad-to) 100%);
   background-attachment: fixed;
-  color: #d3deec;
+  color: #cfd9e8;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
+  background-size: 28px 28px;
+  opacity: 0.45;
+  z-index: 0;
 }
-::-webkit-scrollbar-track {
-  background: rgba(74, 158, 255, 0.08);
-}
+
+#root { position: relative; z-index: 1; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: rgba(74,158,255,0.05); }
 ::-webkit-scrollbar-thumb {
-  background: #4a9eff;
+  background: rgba(74,158,255,0.45);
   border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #7ab8ff;
+  background: rgba(122,184,255,0.65);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+:focus-visible {
+  outline: 2px solid #4a9eff;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #7ab8ff 0%, #00d4ff 60%, #80e3a3 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-.fade-in-up {
-  animation: fadeInUp 0.45s ease forwards;
+.fade-in-up { animation: fadeInUp 0.5s ease forwards; }
+
+.glass {
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.08);
 }
+.glass-hover { transition: border-color 0.25s ease, background 0.25s ease, transform 0.25s ease; }
+.glass-hover:hover { border-color: rgba(74,158,255,0.35); background: rgba(255,255,255,0.06); }

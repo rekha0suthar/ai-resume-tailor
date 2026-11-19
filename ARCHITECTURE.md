@@ -51,13 +51,19 @@ mid-stream) and occasional word-numbers for scores (`src/lib/scores.js`
 coerces `"thirty"` → 30, observed in a live run). Key order is prompt-pinned
 so the scores and light cards stream before the long resume.
 
-**Dual rubric scores instead of a single re-judged score.** v≤4 returned one
-score, re-judged from scratch per run — re-running could *lower* the number
-and read as a regression. Now one response carries `original_match_score`
-and `tailored_match_score`, both judged by the same model call against the
-same explicit weighted rubric (shared verbatim between the tailor and refine
-prompts), so the delta is a defensible claim and refine's `updatedScore`
-extends the same series.
+**Component-based computed scores instead of a single vibed number.** v≤4
+returned one eyeballed 0–100 score, re-judged from scratch per call — a
+cosmetic refinement once jumped +34 while the full tailoring pass earned
++16, which destroys trust in the number. Scores are now four capped rubric
+components (required skills /40, relevant experience /30, keyword alignment
+/20, evidence & metrics /10) emitted as explicit breakdowns; the total is
+their **sum**, and when the model's claimed total disagrees with a valid
+breakdown, the sum wins (`reconcileScore`). Refinements carry the previous
+breakdown into the prompt and may only adjust components their edit
+plausibly touched — measured result: a summary condensation now moves the
+total by 0, and identical tailor reruns land within single digits. The
+breakdown is user-visible (expandable score strip), so the number explains
+itself.
 
 **`parseResume` as the single source of truth.** The tailored markdown is
 parsed once (`src/lib/resumeParser.js`, pure, unit-tested) into

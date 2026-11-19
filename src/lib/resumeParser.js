@@ -37,13 +37,22 @@ const DATEISH_RE = /(?:19|20)\d{2}|present|current|now/i;
 const CONTACTISH_RE =
   /@|\||·|•|linkedin|github|portfolio|https?:\/\/|www\.|\+?\d[\d\s().-]{7,}\d/i;
 
+/** Common resume section names — a heading matching these is never the candidate name. */
+const SECTION_WORDS_RE =
+  /^(?:professional\s+|work\s+|technical\s+|core\s+|key\s+)?(?:summary|skills?|experience|employment|education|projects?|certifications?|contact|objective|achievements?|awards?|publications?|interests?|languages?|profile|about)\b/i;
+
+/** Flatten [text](url) links — on a paper resume the text is what matters. */
+const flattenLinks = (text) =>
+  String(text).replace(/\[([^\]]+)\]\(([^)]*)\)/g, '$1');
+
 /**
  * Split inline markdown into segments: [{ text, bold }].
- * **bold** is the only inline markup the resume dialect uses.
+ * **bold** is the only inline markup the resume dialect uses;
+ * [text](url) links are flattened to their text.
  */
 export function splitBold(text) {
   if (!text) return [];
-  return String(text)
+  return flattenLinks(text)
     .split(/(\*\*[^*]+\*\*)/g)
     .filter((part) => part !== '')
     .map((part) =>
@@ -95,6 +104,17 @@ const bulletText = (line) => line.replace(/^(?:[-*•])\s+/, '');
 const looksLikeName = (line) =>
   line.length <= 60 && !/[.:;]$/.test(line) && !CONTACTISH_RE.test(line);
 
+/** A leading "## "/"### " heading that reads like a person, not a section. */
+const looksLikeNameHeading = (text) =>
+  text.length <= 80 &&
+  /\s/.test(text) &&
+  !/[.:;]$/.test(text) &&
+  !SECTION_WORDS_RE.test(text) &&
+  !CONTACTISH_RE.test(text);
+
+const headingLevel = (line) =>
+  line.startsWith('### ') ? 3 : line.startsWith('## ') ? 2 : line.startsWith('# ') ? 1 : 0;
+
 /**
  * Parse tailored-resume markdown into the document structure above.
  * Pure function; never throws on malformed input.
@@ -102,6 +122,33 @@ const looksLikeName = (line) =>
 export function parseResume(markdown) {
   const doc = { name: null, contact: null, sections: [] };
   if (!markdown || typeof markdown !== 'string') return doc;
+
+  const lines = markdown.split('\n').map((l) => l.trim());
+
+  // --- Pre-scan: which line (if any) is the name, and which heading level
+  // marks sections. Models mostly follow the prompt ("## " sections, "### "
+  // roles), but some emit the NAME as "## "/"### " and sections one level
+  // down — so the levels are decided from the document, not assumed.
+  let nameLineIdx = -1;
+  const firstIdx = lines.findIndex((l) => l !== '');
+  if (firstIdx !== -1) {
+    const first = lines[firstIdx];
+    const lvl = headingLevel(first);
+    const text = stripBold(first.slice(lvl + 1)).trim();
+    if (lvl === 1 || (lvl > 1 && looksLikeNameHeading(text))) nameLineIdx = firstIdx;
+  }
+  let h2Count = 0;
+  let h3Count = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (i === nameLineIdx) continue;
+    const lvl = headingLevel(lines[i]);
+    if (lvl === 2) h2Count++;
+    else if (lvl === 3) h3Count++;
+  }
+  // Normally sections are "## " and entries "### "; when a document has no
+  // "## " body headings at all, its "### " headings are promoted to sections.
+  const sectionLevel = h2Count > 0 || h3Count === 0 ? 2 : 3;
+  const entryLevel = sectionLevel === 2 ? 3 : 99;
 
   let section = null; // current { heading, blocks }
   let entry = null; //   current { type: 'entry', ... } inside section
@@ -125,8 +172,15 @@ export function parseResume(markdown) {
 
   let sawContent = false; // any block-level content committed yet?
 
-  for (const rawLine of markdown.split('\n')) {
-    const line = rawLine.trim();
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (i === nameLineIdx) {
+      const lvl = headingLevel(line);
+      doc.name = stripBold(line.slice(lvl + 1)).trim();
+      continue;
+    }
+
     if (!line) {
       flushBullets();
       continue;
@@ -138,8 +192,10 @@ export function parseResume(markdown) {
     }
     flushBullets();
 
-    if (line.startsWith('### ')) {
-      const { title, dates } = parseRoleHeading(line.slice(4));
+    const lvl = headingLevel(line);
+
+    if (lvl === entryLevel) {
+      const { title, dates } = parseRoleHeading(line.slice(lvl + 1));
       entry = { type: 'entry', title, dates, blocks: [] };
       if (!section) {
         section = { heading: null, blocks: [] };
@@ -150,25 +206,13 @@ export function parseResume(markdown) {
       continue;
     }
 
-    if (line.startsWith('## ')) {
+    if (lvl > 0) {
+      // Section heading — at the document's section level, or a stray
+      // heading at another level (e.g. a late "# ").
       entry = null;
-      section = { heading: stripBold(line.slice(3)).trim(), blocks: [] };
+      section = { heading: stripBold(line.slice(lvl + 1)).trim(), blocks: [] };
       doc.sections.push(section);
       sawContent = true;
-      continue;
-    }
-
-    if (line.startsWith('# ')) {
-      const text = stripBold(line.slice(2)).trim();
-      if (!doc.name && !sawContent) {
-        doc.name = text;
-      } else {
-        // A stray late "# " heading — treat it as a section heading.
-        entry = null;
-        section = { heading: text, blocks: [] };
-        doc.sections.push(section);
-        sawContent = true;
-      }
       continue;
     }
 
@@ -179,8 +223,9 @@ export function parseResume(markdown) {
       continue;
     }
     if (doc.name && !sawContent && !doc.contact && CONTACTISH_RE.test(line)) {
-      // Contact line directly under the name, before any section.
-      doc.contact = stripBold(line).trim();
+      // Contact line directly under the name, before any section —
+      // some models label it ("**Contact:** …"); drop the label.
+      doc.contact = stripBold(line).replace(/^contact:?\s*/i, '').trim();
       continue;
     }
     target().push({ type: 'p', text: line });

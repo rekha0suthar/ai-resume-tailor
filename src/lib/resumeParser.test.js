@@ -125,6 +125,28 @@ describe('parseResume', () => {
     expect(doc.sections.map((s) => s.heading)).toEqual(['Skills', 'Projects']);
   });
 
+  // Shapes observed in real model output (name as "## ", sections as "### ",
+  // a labelled contact line, markdown links).
+  it('takes a leading "## Name — Title" heading as the name and promotes "###" to sections', () => {
+    const doc = parseResume(
+      '## Riya Sharma — Full-Stack Developer\n\n**Contact:** riya@email.com | [github.com/riya](https://github.com/riya)\n\n### Summary\nEngineer.\n\n### Skills\n- React'
+    );
+    expect(doc.name).toBe('Riya Sharma — Full-Stack Developer');
+    expect(doc.contact).toBe('riya@email.com | github.com/riya');
+    expect(doc.sections.map((s) => s.heading)).toEqual(['Summary', 'Skills']);
+  });
+
+  it('does NOT mistake a leading "## Summary" section for a name', () => {
+    const doc = parseResume('## Summary\nEngineer with experience.\n\n## Skills\n- React');
+    expect(doc.name).toBeNull();
+    expect(doc.sections.map((s) => s.heading)).toEqual(['Summary', 'Skills']);
+  });
+
+  it('keeps "### " as role entries when "## " sections exist', () => {
+    const doc = parseResume('## Experience\n### Engineer (2020 – 2022)\n- Did work');
+    expect(doc.sections[0].blocks[0].type).toBe('entry');
+  });
+
   it('strips bold markers from names and section headings', () => {
     const doc = parseResume('# **Riya Sharma**\n\n## **Skills**\n- React');
     expect(doc.name).toBe('Riya Sharma');

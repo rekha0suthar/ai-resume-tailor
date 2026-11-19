@@ -10,12 +10,12 @@ const STEPS = [
   {
     icon: Sparkles,
     title: '2 · Watch it tailor',
-    body: 'Llama 3.3 70B via Groq streams its output back. Bullet rewrites, missing keywords, and likely interview questions appear as they generate.',
+    body: 'Your rewritten resume streams onto a real document sheet, scored before and after against the job description so the improvement is visible.',
   },
   {
     icon: Edit3,
-    title: '3 · Edit and copy',
-    body: 'Every rewrite is inline-editable before you copy it. Take what fits, ignore the rest. Your judgement, AI as a fast first draft.',
+    title: '3 · Refine and download',
+    body: 'Ask for changes in chat — whole resume or one section at a time — pick a template, and download the finished PDF.',
   },
 ];
 

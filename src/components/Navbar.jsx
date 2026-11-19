@@ -10,9 +10,6 @@ const Navbar = () => (
         </span>
         <span className="hidden xs:inline">AI Resume Tailor</span>
         <span className="xs:hidden">Tailor</span>
-        <span className="rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent-bright">
-          v1
-        </span>
       </a>
       <a
         href="https://github.com/rekha0suthar/ai-resume-tailor"

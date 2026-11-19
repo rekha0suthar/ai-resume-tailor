@@ -12,7 +12,7 @@ const Hero = () => (
   <header className="mb-10 text-center sm:mb-14">
     <div className="flex flex-wrap items-center justify-center gap-1.5">
       <Pill icon={Zap}>Streaming output</Pill>
-      <Pill icon={Bot}>Llama 3.3 70B · Groq</Pill>
+      <Pill icon={Bot}>gpt-oss-120b · Groq</Pill>
       <Pill icon={Lock}>Nothing stored</Pill>
     </div>
     <h1 className="mt-5 text-3xl font-bold leading-[1.1] tracking-tight text-white sm:text-4xl md:text-5xl">
@@ -21,9 +21,9 @@ const Hero = () => (
       in <span className="text-gradient">seconds, not afternoons</span>.
     </h1>
     <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
-      Upload your resume (PDF or paste) plus a job description. Get back
-      bullet rewrites, ATS keyword gaps, and likely interview questions —
-      streamed live as the model thinks.
+      Paste your resume and the job description. Get a rewritten,
+      ready-to-send resume in a professional template — with a before and
+      after match score, keyword gap analysis, and chat-driven refinement.
     </p>
   </header>
 );

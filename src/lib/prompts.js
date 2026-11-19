@@ -67,6 +67,12 @@ Given a candidate's resume and a target job description, you produce six things:
      real experience; rework bullets following your own tailoring advice above.
    - Keep ALL real experience, education, and contact details from the
      original resume.
+   - Target a concise ONE-PAGE resume by default: roughly 450–550 words of
+     content. Only exceed that when the original is clearly a senior, long
+     resume (e.g. 10+ years across many roles) that genuinely needs the
+     space. Reach the target by tightening bullets and cutting redundancy —
+     NEVER drop a real experience or education entry entirely just to hit
+     the length.
    - NEVER invent employers, job titles, dates, degrees, or metrics that are
      not in the original resume.
    - Preserve every URL/link from the original resume verbatim — never drop

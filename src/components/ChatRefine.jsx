@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessagesSquare, Pencil, SendHorizontal, Undo2 } from 'lucide-react';
 import { INSTRUCTION_MAX } from '../lib/prompts.js';
 
-const QUICK_ACTIONS = ['Make it one page', 'More formal tone', 'Stronger action verbs'];
+const QUICK_ACTIONS = ['Fit to one page', 'More formal tone', 'Stronger action verbs'];
 
 const fadeIn = {
   initial: { opacity: 0, y: 8 },

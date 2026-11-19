@@ -16,6 +16,7 @@ import {
 import toast from 'react-hot-toast';
 import ChatRefine from './ChatRefine.jsx';
 import ScoreStrip from './ScoreStrip.jsx';
+import PageBoundary from './PageBoundary.jsx';
 import ResumePreview, { TEMPLATES, TEMPLATE_IDS, DEFAULT_TEMPLATE } from './ResumePreview.jsx';
 import { parseResume, sectionHeadings } from '../lib/resumeParser.js';
 
@@ -284,6 +285,7 @@ const SheetSkeleton = () => (
 const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
   const [copied, setCopied] = useState(false);
   const [template, setTemplate] = useState(loadStoredTemplate);
+  const [overflows, setOverflows] = useState(false);
 
   const changeTemplate = (id) => {
     setTemplate(id);
@@ -366,9 +368,17 @@ const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
         </div>
       </div>
 
-      <div className={busy ? 'sheet-loading rounded-sm' : undefined}>
-        <ResumePreview markdown={markdown} template={template} onSectionEdit={onSectionEdit} />
-      </div>
+      {overflows && !busy && (
+        <p className="mb-2 text-center text-[11px] text-amber-200/90">
+          Runs past one page — try &ldquo;Fit to one page&rdquo; or the Compact
+          template.
+        </p>
+      )}
+      <PageBoundary template={template} onOverflowChange={setOverflows}>
+        <div className={busy ? 'sheet-loading rounded-sm' : undefined}>
+          <ResumePreview markdown={markdown} template={template} onSectionEdit={onSectionEdit} />
+        </div>
+      </PageBoundary>
       <p className="mt-2.5 text-center text-[11px] text-slate-500">
         Hover a section heading on the sheet to request changes to just that
         section.

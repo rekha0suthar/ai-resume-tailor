@@ -235,3 +235,23 @@ export function parseResume(markdown) {
   flushBullets();
   return doc;
 }
+
+/**
+ * Named section headings of a resume, in document order, deduped.
+ * Pure helper for the per-section refinement chips ("In the Summary
+ * section: …") — the UI derives its chips from the ACTUAL parsed resume,
+ * so the chips always match what's on the sheet.
+ */
+export function sectionHeadings(markdown) {
+  const seen = new Set();
+  const out = [];
+  for (const s of parseResume(markdown).sections) {
+    const heading = (s.heading || '').trim();
+    const key = heading.toLowerCase();
+    if (heading && !seen.has(key)) {
+      seen.add(key);
+      out.push(heading);
+    }
+  }
+  return out;
+}

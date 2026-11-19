@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { Pencil } from 'lucide-react';
 import { parseResume, splitBold } from '../lib/resumeParser.js';
 
 /**
@@ -171,7 +172,13 @@ const Blocks = ({ blocks, t }) => (
   </div>
 );
 
-const ResumePreview = ({ markdown, template = DEFAULT_TEMPLATE }) => {
+/**
+ * ResumePreview — pass `onSectionEdit(heading)` to make each section heading
+ * editable-looking: a small pencil affordance (hover-revealed on desktop,
+ * always visible on touch) that asks the chat to change JUST that section.
+ * The print sheet renders without it, so nothing leaks into the PDF.
+ */
+const ResumePreview = ({ markdown, template = DEFAULT_TEMPLATE, onSectionEdit }) => {
   const t = TEMPLATES[template] || TEMPLATES[DEFAULT_TEMPLATE];
   const doc = useMemo(() => parseResume(markdown), [markdown]);
 
@@ -198,11 +205,27 @@ const ResumePreview = ({ markdown, template = DEFAULT_TEMPLATE }) => {
 
       {doc.sections.map((section, i) => (
         <section key={i} className={i === 0 && !doc.name ? '' : t.sectionGap}>
-          {section.heading && (
-            <h2 className={t.heading} style={t.headingStyle}>
-              {section.heading}
-            </h2>
-          )}
+          {section.heading &&
+            (onSectionEdit ? (
+              <div className="group/heading relative">
+                <h2 className={t.heading} style={t.headingStyle}>
+                  {section.heading}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => onSectionEdit(section.heading)}
+                  aria-label={`Request a change to the ${section.heading} section`}
+                  title={`Ask for changes to "${section.heading}"`}
+                  className="absolute right-0 top-1/2 inline-flex h-6 w-6 -translate-y-[60%] items-center justify-center rounded-md border border-neutral-300 bg-white text-neutral-500 shadow-sm transition hover:border-neutral-400 hover:text-neutral-800 focus-visible:opacity-100 sm:opacity-0 sm:group-hover/heading:opacity-100 print:hidden"
+                >
+                  <Pencil size={11} aria-hidden="true" />
+                </button>
+              </div>
+            ) : (
+              <h2 className={t.heading} style={t.headingStyle}>
+                {section.heading}
+              </h2>
+            ))}
           <Blocks blocks={section.blocks} t={t} />
         </section>
       ))}

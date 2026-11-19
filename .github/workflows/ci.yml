@@ -24,3 +24,20 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # Vercel's production branch is `release` (not main) — promoting here means
+  # a broken main can never reach production: the push only happens when the
+  # test + build job above is green.
+  promote:
+    needs: test-and-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Promote main to release
+        run: git push origin HEAD:release

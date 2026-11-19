@@ -156,7 +156,11 @@ npm test
 
 ## Deploy
 
-Connect the repo to Vercel, add `GROQ_API_KEY` under Environment Variables, deploy. Every `git push origin main` triggers a fresh deploy. Optionally set `GROQ_MODEL` to swap models without a code change (defaults to `openai/gpt-oss-120b`).
+Connect the repo to Vercel, add `GROQ_API_KEY` under Environment Variables, deploy. Optionally set `GROQ_MODEL` to swap models without a code change (defaults to `openai/gpt-oss-120b`).
+
+### Deployment (CI-gated)
+
+Vercel's **production branch should be set to `release`**, not `main` (Vercel project → Settings → Git → Production Branch). CI runs lint + tests + build on every push to `main`, and only when that job is green does the `promote` job fast-forward `release` to the same commit (`git push origin HEAD:release`) — so broken code never deploys. Pushes to `main` with failing tests simply never reach production.
 
 ## Known limitations & next steps
 

@@ -65,6 +65,17 @@ React UI ─ POST /api/tailor ─▶  api/tailor.js  ──▶  gpt-oss-120b
 - The `GROQ_API_KEY` lives only in Vercel's environment variables. It never reaches the browser.
 - The serverless function streams `event: chunk` SSE messages as Groq generates tokens. The client appends to an accumulating buffer and reparses with `partial-json` on every chunk, so completed objects (bullet rewrites, missing keywords, etc.) appear progressively.
 
+## Privacy
+
+Your resume is processed in memory and sent only to Groq's API for AI processing. It is never stored, logged, or used for anything else by this app. State lives in your browser tab.
+
+Specifically (verified against the code in `api/`):
+
+- No database, no file writes, no analytics — the serverless functions hold the request only in memory while streaming the response.
+- Server logs never contain resume or job-description content; the only `console.error` calls log error objects on upstream failures.
+- The browser's `localStorage` holds just two preferences (chosen template, a "PDF hint seen" flag) — never your text. Closing the tab discards everything else.
+- Content sent to Groq is subject to [Groq's privacy policy](https://groq.com/privacy-policy/); this app adds no storage of its own.
+
 ## Stack
 
 - **React 18 + Vite** — modern build chain, instant HMR.

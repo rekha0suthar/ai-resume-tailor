@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Hourglass, PencilLine, RotateCcw, TriangleAlert } from 'lucide-react';
+import { Hourglass, PencilLine, RotateCcw, ShieldCheck, TriangleAlert } from 'lucide-react';
 import Navbar from './components/Navbar.jsx';
 import Hero from './components/Hero.jsx';
 import TailorForm from './components/TailorForm.jsx';
@@ -138,6 +138,16 @@ const App = () => {
               onSubmit={runTailor}
               isStreaming={status === 'streaming'}
             />
+            {/* Accurate per the api/ audit: nothing is stored or logged;
+                resume/JD leave the request only to reach Groq's API. */}
+            <p className="mx-auto mt-4 flex max-w-xl items-start justify-center gap-1.5 text-center text-[11px] leading-relaxed text-slate-500">
+              <ShieldCheck size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+              <span>
+                Your resume is processed in memory and sent only to Groq&rsquo;s
+                API for AI processing. It is never stored, logged, or used for
+                anything else by this app. State lives in your browser tab.
+              </span>
+            </p>
             {hasResults && (
               <div className="mt-4 flex justify-center">
                 <button

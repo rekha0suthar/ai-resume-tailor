@@ -3,7 +3,11 @@
  * Lives in src/lib so both /api routes and any future client-side
  * preview helpers can read the same source of truth.
  */
-export const MODEL = 'llama-3.3-70b-versatile';
+// Only the serverless function imports this module, so reading process.env
+// here is safe (it never ships in the client bundle). Override the model via
+// the GROQ_MODEL env var when Groq rotates model availability.
+export const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+export const MODEL = process.env.GROQ_MODEL || DEFAULT_MODEL;
 export const MAX_TOKENS = 4096;
 export const RESUME_CAP = 8000;
 export const JD_CAP = 6000;

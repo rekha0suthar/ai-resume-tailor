@@ -17,6 +17,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { parse, ALL } from 'partial-json';
 import { partialValidate } from '../lib/schema.js';
+import { parseSSE } from '../lib/sse.js';
 
 const empty = {
   overall_match_score: 0,
@@ -90,17 +91,9 @@ export function useTailor() {
     let accumulator = '';
 
     const processEvents = () => {
-      const parts = buffer.split('\n\n');
-      buffer = parts.pop() ?? '';
-      for (const block of parts) {
-        const lines = block.split('\n');
-        let event = 'message';
-        let data = '';
-        for (const line of lines) {
-          if (line.startsWith('event: ')) event = line.slice(7).trim();
-          else if (line.startsWith('data: ')) data += line.slice(6);
-        }
-        if (!data) continue;
+      const { events, rest } = parseSSE(buffer);
+      buffer = rest;
+      for (const { event, data } of events) {
         let parsed;
         try {
           parsed = JSON.parse(data);

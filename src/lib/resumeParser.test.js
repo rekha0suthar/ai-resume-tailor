@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseResume, parseRoleHeading, splitBold, stripBold } from './resumeParser.js';
+import { parseResume, parseRoleHeading, splitBold, stripBold, sectionHeadings } from './resumeParser.js';
 
 const FULL = `# Riya Sharma
 riya.sharma@email.com | +91 98765 43210 | github.com/riya | linkedin.com/in/riya
@@ -205,5 +205,38 @@ describe('splitBold / stripBold', () => {
 
   it('stripBold flattens to plain text', () => {
     expect(stripBold('**Riya** Sharma')).toBe('Riya Sharma');
+  });
+});
+
+describe('sectionHeadings', () => {
+  it('returns named section headings in document order', () => {
+    expect(sectionHeadings(FULL)).toEqual(['Summary', 'Experience', 'Skills', 'Education']);
+  });
+
+  it('skips the unnamed leading section and dedupes case-insensitively', () => {
+    const md = [
+      'A loose intro paragraph before any heading.',
+      '',
+      '## Skills',
+      '- React',
+      '',
+      '## skills',
+      '- Node',
+      '',
+      '## Projects',
+      '- Thing',
+    ].join('\n');
+    expect(sectionHeadings(md)).toEqual(['Skills', 'Projects']);
+  });
+
+  it('handles promoted ### sections (no ## in the document)', () => {
+    const md = ['### Summary', 'Text.', '', '### Experience', '- Bullet'].join('\n');
+    expect(sectionHeadings(md)).toEqual(['Summary', 'Experience']);
+  });
+
+  it('is safe on garbage input', () => {
+    expect(sectionHeadings('')).toEqual([]);
+    expect(sectionHeadings(null)).toEqual([]);
+    expect(sectionHeadings(undefined)).toEqual([]);
   });
 });

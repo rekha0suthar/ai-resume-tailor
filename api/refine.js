@@ -146,6 +146,9 @@ export default async function handler(req, res) {
       ],
       temperature: 0.3,
       max_tokens: MAX_TOKENS,
+      // Low reasoning effort — see api/tailor.js: hidden reasoning tokens
+      // share the max_tokens budget and can truncate the JSON.
+      reasoning_effort: 'low',
       // NO response_format — see api/tailor.js: json_object mode delivers
       // gpt-oss-120b output as one giant delta and kills streaming.
       stream: true,

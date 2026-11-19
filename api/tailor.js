@@ -95,6 +95,11 @@ export default async function handler(req, res) {
       ],
       temperature: 0.4,
       max_tokens: MAX_TOKENS,
+      // gpt-oss models spend HIDDEN reasoning tokens from the same
+      // max_tokens budget; at default effort the smaller model burned most
+      // of the 4096 reserve thinking and truncated mid-JSON. Structured
+      // extraction doesn't need deep reasoning.
+      reasoning_effort: 'low',
       // NO response_format here, deliberately: with { type: 'json_object' }
       // Groq delivers gpt-oss-120b output as ONE content delta at the very
       // end (measured: 1 delta vs ~100 without it), which kills progressive

@@ -13,7 +13,7 @@ Paste (or upload) a resume + a job description, and watch a **complete tailored 
 ## The flow
 
 1. **Input stage** — paste your resume (or upload a PDF) and the job description. "See a demo" pre-fills both with a curated example.
-2. **Results stage** — a score strip shows `original → tailored` with a delta badge, so the improvement is evident (both scores come from the same explicit rubric: required-skills coverage 40%, relevant experience 30%, keyword alignment 20%, evidence/metrics 10%). Below it, the hero: the tailored resume on a paper sheet (template tabs + **Save as PDF** as the primary action) with the refinement chat docked beside it. If the resume runs past one printed page, a dashed "Page 1 ends here (approx.)" marker shows where the break falls for the current template, with a nudge toward "Fit to one page" or the Compact template.
+2. **Results stage** — a score strip shows `original → tailored` with a delta badge, so the improvement is evident (both scores come from the same explicit rubric: required-skills coverage 40%, relevant experience 30%, keyword alignment 20%, evidence/metrics 10%). Below it, the hero: the tailored resume on a paper sheet (template tabs + **Download PDF** as the primary action) with the refinement chat docked beside it. If the resume runs past one printed page, a dashed "Page 1 ends here (approx.)" marker shows where the break falls for the current template, with a nudge toward "Fit to one page" or the Compact template.
 3. **Refine** — type an instruction, tap a section chip, or hover a section heading on the sheet and click the pencil to target just that section ("In the Experience section: …"). Sections can be reordered/moved/merged by asking ("Move Education to the bottom" — the "Reorder sections…" chip prefills it). Every refinement streams into the preview and returns a fresh score against the *same* JD, appended to the score history.
 4. **Secondary panels** (collapsible, below the hero): Keyword gaps, What changed & why, and Interview prep — in that order, least urgent last.
 
@@ -23,7 +23,7 @@ Paste (or upload) a resume + a job description, and watch a **complete tailored 
 
 - **Links no longer vanish** (user-found bug): the markdown parser preserved `[text](url)` links only as text, so portfolio/GitHub/project links disappeared from the preview and the PDF. Links now survive as structured tokens, render as real `<a href>` on the sheet (bare `https://…`/`www.…` URLs too), stay clickable in the saved PDF, and both prompts demand every original URL be kept verbatim.
 - **One-page support**: the tailor prompt targets ~450–550 words unless the original is clearly senior/long (tightening bullets, never dropping real entries); the preview draws an approximate page-1 boundary when content overflows, with a one-line nudge.
-- **"Save as PDF"** (was "Download PDF"): names what actually happens, with a print-dialog hint toast and a one-time caption explaining the browser PDF engine keeps text selectable/ATS-readable.
+- **Direct PDF download** (asked for twice in user testing): "Download PDF" now saves `<Name> - Resume.pdf` straight to disk — no OS print dialog. [@react-pdf/renderer](https://www.npmjs.com/package/@react-pdf/renderer) renders the *same parsed structure* as the on-screen sheet through per-template PDF styles (Classic → Times, the rest → Helvetica, matching margins/accents), so text stays selectable and ATS-readable and every link stays clickable. The engine loads lazily on first click (its own chunk — the main bundle doesn't grow), and a quiet "Print…" button keeps the old print-portal path for paper.
 - **Section reordering via chat**: the refine prompt's structure-preservation rule now yields to explicit reorder/move/merge/remove requests; a "Reorder sections…" chip prefills the instruction.
 - **Design tokens**: app-shell colors consolidated into `accent` / `surface-1..3` / `success|warn|error` tokens in `tailwind.config.js` (the four resume templates keep their own document palettes).
 - **Honest expectations**: a quiet line under the score strip notes that honest tailoring typically gains 5–15 points and a low ceiling means a skills gap.
@@ -83,7 +83,7 @@ Specifically (verified against the code in `api/`):
 
 - No database, no file writes, no analytics — the serverless functions hold the request only in memory while streaming the response.
 - Server logs never contain resume or job-description content; the only `console.error` calls log error objects on upstream failures.
-- The browser's `localStorage` holds just two preferences (chosen template, a "PDF hint seen" flag) — never your text. Closing the tab discards everything else.
+- The browser's `localStorage` holds just one preference (the chosen template) — never your text. Closing the tab discards everything else. PDF generation happens entirely in your browser.
 - Content sent to Groq is subject to [Groq's privacy policy](https://groq.com/privacy-policy/); this app adds no storage of its own.
 
 ## Stack
@@ -94,6 +94,7 @@ Specifically (verified against the code in `api/`):
 - **Groq Cloud** — gpt-oss-120b (`openai/gpt-oss-120b`), streaming, prompt-enforced JSON.
 - **lucide-react** icons, **framer-motion** animations, **react-hot-toast** notifications.
 - **zod** for response schema validation, **partial-json** for incremental parsing.
+- **@react-pdf/renderer** (lazy-loaded) — client-side PDF generation for the direct download; standard PDF fonts, so no font files ship.
 
 ## Folder layout
 
@@ -114,6 +115,9 @@ src/
     PageBoundary.jsx       ← Approximate page-1 break indicator (measured)
     ChatRefine.jsx         ← Docked chat: section chips, prefill, undo
     Footer.jsx
+  pdf/
+    ResumePdf.jsx          ← @react-pdf Document (lazy chunk, direct download)
+    pdfStyles.js           ← Pure template→PDF style mapping (unit-tested)
   hooks/
     useTailor.js           ← Streaming state machine (tailor)
     useRefine.js           ← Chat session: history, versions, score trail

@@ -93,9 +93,10 @@ against `api/` and stated in the README and in-app.
   defaults degrade gracefully (missing score → placeholder, short resume →
   hidden), but a badly malformed response yields partial results rather
   than a hard error.
-- **Page-1 boundary is approximate**: derived from A4 ratio minus template
-  margins scaled to on-screen width; print rounding and font metrics shift
-  the real break slightly (labeled "approx." in the UI).
+- **Page count costs a background render**: the page badge reports the true
+  page count by rendering the actual PDF off-screen (debounced ~800ms after
+  content settles; stale renders discarded via a token) — truthful, but it
+  spends a render per settle/template switch rather than estimating.
 - **Score is an LLM judgment**, rubric-pinned for consistency but not
   deterministic; the UI sets expectations (honest gains ≈ 5–15 points).
 - **`maxDuration: 30`** caps a tailor run; very long resumes near the input

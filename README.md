@@ -13,7 +13,7 @@ Paste (or upload) a resume + a job description, and watch a **complete tailored 
 ## The flow
 
 1. **Input stage** — paste your resume (or upload a PDF) and the job description. "See a demo" pre-fills both with a curated example.
-2. **Results stage** — a score strip shows `original → tailored` with a delta badge, so the improvement is evident (both scores come from the same explicit rubric: required-skills coverage 40%, relevant experience 30%, keyword alignment 20%, evidence/metrics 10%). Below it, the hero: the tailored resume on a paper sheet (template tabs + **Download PDF** as the primary action) with the refinement chat docked beside it. If the resume runs past one printed page, a dashed "Page 1 ends here (approx.)" marker shows where the break falls for the current template, with a nudge toward "Fit to one page" or the Compact template.
+2. **Results stage** — a score strip shows `original → tailored` with a delta badge, so the improvement is evident (both scores come from the same explicit rubric: required-skills coverage 40%, relevant experience 30%, keyword alignment 20%, evidence/metrics 10%). Below it, the hero: the tailored resume on a paper sheet (template tabs + **Download PDF** as the primary action) with the refinement chat docked beside it. A badge next to the template tabs shows the true page count of the downloadable PDF (rendered quietly in the background): "PDF: 1 page" on target, or "PDF: N pages" with a nudge toward "Fit to one page" or the Compact template.
 3. **Refine** — type an instruction, tap a section chip, or hover a section heading on the sheet and click the pencil to target just that section ("In the Experience section: …"). Sections can be reordered/moved/merged by asking ("Move Education to the bottom" — the "Reorder sections…" chip prefills it). Every refinement streams into the preview and returns a fresh score against the *same* JD, appended to the score history.
 4. **Secondary panels** (collapsible, below the hero): Keyword gaps, What changed & why, and Interview prep — in that order, least urgent last.
 
@@ -22,7 +22,7 @@ Paste (or upload) a resume + a job description, and watch a **complete tailored 
 ## Post-v5 polish (user-testing round)
 
 - **Links no longer vanish** (user-found bug): the markdown parser preserved `[text](url)` links only as text, so portfolio/GitHub/project links disappeared from the preview and the PDF. Links now survive as structured tokens, render as real `<a href>` on the sheet (bare `https://…`/`www.…` URLs too), stay clickable in the saved PDF, and both prompts demand every original URL be kept verbatim.
-- **One-page support**: the tailor prompt targets ~450–550 words unless the original is clearly senior/long (tightening bullets, never dropping real entries); the preview draws an approximate page-1 boundary when content overflows, with a one-line nudge.
+- **One-page support**: the tailor prompt targets ~450–550 words unless the original is clearly senior/long (tightening bullets, never dropping real entries); a badge reports the actual page count of the downloadable PDF — it re-checks after refinements and template switches, since page counts differ per template.
 - **Direct PDF download** (asked for twice in user testing): "Download PDF" now saves `<Name> - Resume.pdf` straight to disk — no OS print dialog. [@react-pdf/renderer](https://www.npmjs.com/package/@react-pdf/renderer) renders the *same parsed structure* as the on-screen sheet through per-template PDF styles (Classic → Times, the rest → Helvetica, matching margins/accents), so text stays selectable and ATS-readable and every link stays clickable. The engine loads lazily on first click (its own chunk — the main bundle doesn't grow), and a quiet "Print…" button keeps the old print-portal path for paper.
 - **Section reordering via chat**: the refine prompt's structure-preservation rule now yields to explicit reorder/move/merge/remove requests; a "Reorder sections…" chip prefills the instruction.
 - **Design tokens**: app-shell colors consolidated into `accent` / `surface-1..3` / `success|warn|error` tokens in `tailwind.config.js` (the four resume templates keep their own document palettes).
@@ -120,7 +120,6 @@ src/
     ResultsPanel.jsx       ← Results IA: score strip, hero, collapsibles
     ScoreStrip.jsx         ← Before → after score + delta + history
     ResumePreview.jsx      ← Templated resume sheet (preview + print)
-    PageBoundary.jsx       ← Approximate page-1 break indicator (measured)
     ChatRefine.jsx         ← Docked chat: section chips, prefill, undo
     Footer.jsx
   pdf/
@@ -129,12 +128,14 @@ src/
   hooks/
     useTailor.js           ← Streaming state machine (tailor)
     useRefine.js           ← Chat session: history, versions, score trail
+    usePdfPageCount.js     ← True PDF page count (lazy, debounced, raced-safe)
   lib/
     prompts.js             ← System prompts + shared scoring rubric + bounds
     schema.js              ← Zod schemas + partial validators
     scores.js              ← Score coercion (word-number guard, pure)
     history.js             ← Chat-history clamping (shared client/server)
     resumeParser.js        ← Resume markdown → structure (pure, tested)
+    pdfPageCount.js        ← PDF page count from raw bytes (pure, tested)
     fences.js              ← ```json fence stripping for the accumulator
     sample.js              ← Curated demo data
   App.jsx
@@ -156,9 +157,10 @@ npm run dev
 
 Open `http://localhost:5173`. The custom Vite plugin in `vite.config.js` routes `/api/*` through your serverless function files, so streaming works locally with no Vercel CLI needed.
 
-Run the 129 unit tests (resume parsing, schema validation, score coercion,
-SSE frame parsing, fence stripping, history clamping, PDF style mapping,
-quota-error classification) and the linter with:
+Run the 141 unit tests (resume parsing, schema validation, score coercion,
+SSE frame parsing, fence stripping, history clamping, PDF style mapping and
+WinAnsi text folding, PDF page counting, quota-error classification) and the
+linter with:
 
 ```bash
 npm test

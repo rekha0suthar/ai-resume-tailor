@@ -3,11 +3,12 @@
  * Lives in src/lib so both /api routes and any future client-side
  * preview helpers can read the same source of truth.
  */
-// Only the serverless function imports this module, so reading process.env
-// here is safe (it never ships in the client bundle). Override the model via
-// the GROQ_MODEL env var when Groq rotates model availability.
+// Override the model via the GROQ_MODEL env var when Groq rotates model
+// availability. Guarded: the client also imports this module (for the input
+// caps below), and `process` doesn't exist in the browser.
 export const DEFAULT_MODEL = 'openai/gpt-oss-120b';
-export const MODEL = process.env.GROQ_MODEL || DEFAULT_MODEL;
+export const MODEL =
+  (typeof process !== 'undefined' && process.env.GROQ_MODEL) || DEFAULT_MODEL;
 // 8192: the full tailored resume (output #5) needs the extra headroom, and
 // gpt-oss-120b supports it comfortably.
 export const MAX_TOKENS = 8192;

@@ -61,10 +61,14 @@ const ChatRefine = ({ refine, sections = [], prefill }) => {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, pendingNote]);
 
-  // A prefill (pencil on a preview section heading) fills + focuses the
-  // input. nonce distinguishes repeat clicks on the same section.
+  // A prefill (pencil on a preview section heading) is an imperative "do
+  // this" signal from the parent, not state to synchronise — an effect keyed
+  // on the nonce is the simplest faithful handling (it must also focus +
+  // scroll, which can't happen during render). nonce distinguishes repeat
+  // clicks on the same section.
   useEffect(() => {
     if (!prefill?.text) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- responding to a parent-sent event, not syncing state
     setDraft(prefill.text);
     const input = inputRef.current;
     if (input) {

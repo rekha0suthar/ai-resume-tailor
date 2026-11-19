@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -110,10 +110,15 @@ const BulletCard = ({ bullet, index }) => {
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Keep editValue in sync if the bullet streams in further updates
-  useEffect(() => {
+  // Adopt streamed-in updates to the rewrite (render-time adjust, per the
+  // React "adjusting state when a prop changes" pattern) — but only while
+  // not editing, and only when the rewrite itself changed, so finishing an
+  // edit no longer discards the user's tweak.
+  const [lastRewrite, setLastRewrite] = useState(bullet.rewrite || '');
+  if ((bullet.rewrite || '') !== lastRewrite) {
+    setLastRewrite(bullet.rewrite || '');
     if (!editing) setEditValue(bullet.rewrite || '');
-  }, [bullet.rewrite, editing]);
+  }
 
   const copy = async () => {
     try {
@@ -483,9 +488,10 @@ const ResultsPanel = ({ result, status, refine }) => {
     setPrefill({ text: `In the ${heading} section: `, nonce: Date.now() });
 
   // Section chips derive from the CURRENT resume, so they track refinements.
+  const committedResume = refine?.currentResume;
   const sections = useMemo(
-    () => (refine?.currentResume ? sectionHeadings(refine.currentResume) : []),
-    [refine?.currentResume]
+    () => (committedResume ? sectionHeadings(committedResume) : []),
+    [committedResume]
   );
 
   const hasAny =
@@ -613,7 +619,7 @@ const ResultsPanel = ({ result, status, refine }) => {
                   </p>
                   {q.what_they_want && (
                     <p className="mt-2 text-xs text-slate-400">
-                      <span className="font-semibold text-slate-300">What they're probing:</span>{' '}
+                      <span className="font-semibold text-slate-300">What they&rsquo;re probing:</span>{' '}
                       {q.what_they_want}
                     </p>
                   )}

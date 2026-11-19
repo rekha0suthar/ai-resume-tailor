@@ -29,8 +29,13 @@ const parseMargin = (pageMargin) => {
 const PageBoundary = ({ template, onOverflowChange, children }) => {
   const wrapRef = useRef(null);
   const [boundary, setBoundary] = useState(null);
+  // Latest-ref for the callback so the measurement effect below doesn't
+  // re-run (re-observe) every time the parent re-renders with a new
+  // function identity. Updated in an effect, not during render.
   const notifyRef = useRef(onOverflowChange);
-  notifyRef.current = onOverflowChange;
+  useEffect(() => {
+    notifyRef.current = onOverflowChange;
+  });
 
   useEffect(() => {
     const sheet = wrapRef.current?.querySelector('.resume-sheet');

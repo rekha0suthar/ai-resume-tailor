@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Copy, Check, Pencil, Target, KeyRound, MessageSquare, FileText, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ChatRefine from './ChatRefine.jsx';
+import ResumePreview from './ResumePreview.jsx';
 
 const fadeIn = {
   initial: { opacity: 0, y: 8 },
@@ -155,89 +156,6 @@ const BulletCard = ({ bullet, index }) => {
   );
 };
 
-/** Inline **bold** spans — the only inline markdown the resume uses. */
-const renderInline = (text) =>
-  text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
-    part.startsWith('**') && part.endsWith('**') ? (
-      <strong key={i} className="font-semibold text-white">
-        {part.slice(2, -2)}
-      </strong>
-    ) : (
-      part
-    )
-  );
-
-/**
- * Minimal markdown renderer for the tailored resume — handles exactly what
- * the prompt asks the model to emit (## / ### headings, - bullets, bold,
- * plain paragraphs) without pulling in a markdown library.
- */
-const ResumeMarkdown = ({ markdown }) => {
-  const blocks = [];
-  let bullets = null;
-  const flushBullets = () => {
-    if (bullets) {
-      blocks.push({ type: 'ul', items: bullets });
-      bullets = null;
-    }
-  };
-  for (const raw of markdown.split('\n')) {
-    const line = raw.trim();
-    if (!line) {
-      flushBullets();
-      continue;
-    }
-    if (line.startsWith('- ') || line.startsWith('* ')) {
-      (bullets ||= []).push(line.slice(2));
-      continue;
-    }
-    flushBullets();
-    if (line.startsWith('### ')) blocks.push({ type: 'h3', text: line.slice(4) });
-    else if (line.startsWith('## ')) blocks.push({ type: 'h2', text: line.slice(3) });
-    else if (line.startsWith('# ')) blocks.push({ type: 'h1', text: line.slice(2) });
-    else blocks.push({ type: 'p', text: line });
-  }
-  flushBullets();
-
-  return (
-    <div className="grid gap-2">
-      {blocks.map((b, i) => {
-        if (b.type === 'ul')
-          return (
-            <ul key={i} className="grid list-disc gap-1.5 pl-5 text-sm text-slate-300 marker:text-accent">
-              {b.items.map((item, j) => (
-                <li key={j}>{renderInline(item)}</li>
-              ))}
-            </ul>
-          );
-        if (b.type === 'h1')
-          return (
-            <h3 key={i} className="text-lg font-bold text-white">
-              {renderInline(b.text)}
-            </h3>
-          );
-        if (b.type === 'h2')
-          return (
-            <h4 key={i} className="mt-3 border-b border-white/10 pb-1 text-sm font-bold uppercase tracking-wider text-accent first:mt-0">
-              {renderInline(b.text)}
-            </h4>
-          );
-        if (b.type === 'h3')
-          return (
-            <h5 key={i} className="mt-2 text-sm font-semibold text-white">
-              {renderInline(b.text)}
-            </h5>
-          );
-        return (
-          <p key={i} className="text-sm text-slate-300">
-            {renderInline(b.text)}
-          </p>
-        );
-      })}
-    </div>
-  );
-};
-
 const TailoredResumeCard = ({ markdown }) => {
   const [copied, setCopied] = useState(false);
 
@@ -283,9 +201,7 @@ const TailoredResumeCard = ({ markdown }) => {
           <Download size={13} /> Download .md
         </button>
       </div>
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-        <ResumeMarkdown markdown={markdown} />
-      </div>
+      <ResumePreview markdown={markdown} />
     </Section>
   );
 };

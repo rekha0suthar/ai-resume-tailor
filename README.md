@@ -10,6 +10,10 @@ Paste (or upload) a resume + a job description, get back **streaming** tailored 
 
 ---
 
+## What v4 adds over v3
+
+- **Resume templates + PDF export.** The tailored resume renders as a real document on a white A4-style sheet, in one of four templates — Classic (serif, centered, small-caps), Modern (sans, muted-teal accents), Compact (tight one-pager), Minimal (airy, no rules) — picked via a chip row and remembered in localStorage. "Download PDF" prints just the sheet through the browser's print dialog with per-template page margins and page-break rules, no PDF library needed.
+
 ## What v3 adds over v2
 
 - **Chat refinement.** Once the tailored resume is generated, a chat panel lets you iterate on it conversationally — type an instruction (or tap a quick action like "Make it one page") and the updated resume streams live into the preview, with a one-sentence summary of what changed in the chat, the last 6 turns sent as context for follow-ups, and a Revert button backed by a 10-deep version history. Copy/download always act on the current version.
@@ -69,6 +73,7 @@ src/
     TailorForm.jsx
     PdfUpload.jsx
     ResultsPanel.jsx
+    ResumePreview.jsx      ← Templated resume sheet (preview + print)
     ChatRefine.jsx         ← Chat panel for iterating on the resume
     Footer.jsx
   hooks/
@@ -78,6 +83,7 @@ src/
     prompts.js             ← System prompts + bounds
     schema.js              ← Zod schemas + partial validators
     history.js             ← Chat-history clamping (shared client/server)
+    resumeParser.js        ← Resume markdown → structure (pure, tested)
     fences.js              ← ```json fence stripping for the accumulator
     sample.js              ← Curated demo data
   App.jsx
@@ -121,7 +127,7 @@ Connect the repo to Vercel, add `GROQ_API_KEY` under Environment Variables, depl
 - [x] **v1** — Streaming SSE, PDF upload, try-with-sample, inline-edit, toast + animations.
 - [x] **v2** — Full tailored resume as a fifth streamed output, with copy-markdown + download-.md actions.
 - [x] **v3** — Chat refinement of the tailored resume: streaming edits, quick actions, history-aware follow-ups, revert.
-- [ ] **v4** — Template-based formatting: pick a template, download the tailored resume as PDF.
+- [x] **v4** — Template-based formatting: pick one of four templates, download the tailored resume as PDF (print stylesheet, zero new dependencies).
 - [ ] **v5** — Multi-JD comparison (paste 3 JDs, see which one fits best).
 
 Build notes for each version are published on [dev.to/rekha0suthar](https://dev.to/rekha0suthar).

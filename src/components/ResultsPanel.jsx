@@ -197,6 +197,7 @@ const BulletCard = ({ bullet, index }) => {
 /* ------------------------------------------------------------------ */
 
 const TEMPLATE_STORAGE_KEY = 'ai-resume-tailor:template';
+const PDF_HINT_KEY = 'ai-resume-tailor:pdf-hint-seen';
 
 const loadStoredTemplate = () => {
   try {
@@ -204,6 +205,14 @@ const loadStoredTemplate = () => {
     return TEMPLATES[stored] ? stored : DEFAULT_TEMPLATE;
   } catch {
     return DEFAULT_TEMPLATE;
+  }
+};
+
+const loadPdfHintSeen = () => {
+  try {
+    return window.localStorage.getItem(PDF_HINT_KEY) === '1';
+  } catch {
+    return false;
   }
 };
 
@@ -286,6 +295,7 @@ const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
   const [copied, setCopied] = useState(false);
   const [template, setTemplate] = useState(loadStoredTemplate);
   const [overflows, setOverflows] = useState(false);
+  const [pdfHintSeen, setPdfHintSeen] = useState(loadPdfHintSeen);
 
   const changeTemplate = (id) => {
     setTemplate(id);
@@ -298,8 +308,21 @@ const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
 
   // Print-to-PDF: swap the document title so the browser's suggested PDF
   // filename is sensible, print, then restore (finally + afterprint both
-  // fire; restoring twice is harmless).
-  const downloadPdf = () => {
+  // fire; restoring twice is harmless). The toast goes out FIRST, with a
+  // short delay before window.print(), so the hint is painted before the
+  // modal print dialog freezes rendering.
+  const savePdf = () => {
+    if (!pdfHintSeen) {
+      setPdfHintSeen(true);
+      try {
+        window.localStorage.setItem(PDF_HINT_KEY, '1');
+      } catch {
+        /* private mode etc. — the caption just shows again next time */
+      }
+    }
+    toast("In the print dialog choose 'Save as PDF' as destination.", {
+      duration: 6000,
+    });
     const prevTitle = document.title;
     const restore = () => {
       document.title = prevTitle;
@@ -307,11 +330,13 @@ const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
     const name = (parseResume(markdown).name || '').replace(/[\\/:*?"<>|]+/g, ' ').trim();
     document.title = name ? `${name} - Resume` : 'Tailored Resume';
     window.addEventListener('afterprint', restore, { once: true });
-    try {
-      window.print();
-    } finally {
-      restore();
-    }
+    window.setTimeout(() => {
+      try {
+        window.print();
+      } finally {
+        restore();
+      }
+    }, 150);
   };
 
   const copy = async () => {
@@ -360,13 +385,20 @@ const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
           </button>
           <button
             type="button"
-            onClick={downloadPdf}
+            onClick={savePdf}
             className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-accent/25 transition hover:bg-accent-bright"
           >
-            <FileDown size={15} aria-hidden="true" /> Download PDF
+            <FileDown size={15} aria-hidden="true" /> Save as PDF
           </button>
         </div>
       </div>
+
+      {!pdfHintSeen && (
+        <p className="-mt-1.5 mb-3 text-right text-[11px] leading-snug text-slate-500">
+          Saving opens your browser&rsquo;s print dialog and uses its PDF engine,
+          so the text stays selectable and ATS-readable.
+        </p>
+      )}
 
       {overflows && !busy && (
         <p className="mb-2 text-center text-[11px] text-amber-200/90">

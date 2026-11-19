@@ -160,7 +160,7 @@ const App = () => {
                 <p className="mt-0.5 truncate text-xs text-slate-400">
                   {status === 'streaming'
                     ? 'Generating — results fill in as the model works.'
-                    : 'Download the PDF, or keep refining it below.'}
+                    : 'Save it as a PDF, or keep refining it below.'}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">

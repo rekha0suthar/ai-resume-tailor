@@ -20,15 +20,61 @@ import { MODEL, MAX_TOKENS, SYSTEM_PROMPT, buildUserPrompt } from '../src/lib/pr
 
 export const config = { maxDuration: 30 };
 
+/**
+ * In-memory sliding-window rate limiter, keyed by client IP.
+ *
+ * Serverless caveat: this Map lives per warm instance, so it's a best-effort
+ * guard, not a hard quota — a cold start or a second instance gets a fresh
+ * window. Good enough to stop casual abuse of a free-tier demo without adding
+ * a dependency. The production answer is a shared store (e.g. Upstash Redis
+ * via @upstash/ratelimit).
+ */
+const RATE_LIMIT = 10; // requests…
+const RATE_WINDOW_MS = 10 * 60 * 1000; // …per 10 minutes
+const hits = new Map(); // ip -> [timestamps]
+let lastSweep = Date.now();
+
+function rateLimited(ip) {
+  const now = Date.now();
+  // Periodic cleanup so the Map doesn't grow unbounded on long-lived instances.
+  if (now - lastSweep > RATE_WINDOW_MS) {
+    lastSweep = now;
+    for (const [key, times] of hits) {
+      const fresh = times.filter((t) => now - t < RATE_WINDOW_MS);
+      if (fresh.length) hits.set(key, fresh);
+      else hits.delete(key);
+    }
+  }
+  const recent = (hits.get(ip) || []).filter((t) => now - t < RATE_WINDOW_MS);
+  if (recent.length >= RATE_LIMIT) {
+    hits.set(ip, recent);
+    return true;
+  }
+  recent.push(now);
+  hits.set(ip, recent);
+  return false;
+}
+
 export default async function handler(req, res) {
+  // Same-origin SPA: no Access-Control-Allow-Origin header on purpose —
+  // the browser only needs CORS headers for cross-origin callers, which
+  // this endpoint doesn't support.
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    return res.status(200).end();
+    res.setHeader('Allow', 'POST, OPTIONS');
+    return res.status(204).end();
   }
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const ip =
+    (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
+    req.socket?.remoteAddress ||
+    'unknown';
+  if (rateLimited(ip)) {
+    return res.status(429).json({
+      error: 'Too many requests — please wait a few minutes and try again.',
+    });
   }
 
   const apiKey = process.env.GROQ_API_KEY;
@@ -90,8 +136,11 @@ export default async function handler(req, res) {
     send('done', { ok: true });
     res.end();
   } catch (err) {
+    // Log the real error server-side; never leak provider detail to clients.
     console.error('Groq stream failed:', err);
-    send('error', { error: err?.message || 'Upstream model call failed.' });
+    send('error', {
+      error: 'The AI service is unavailable right now — please try again in a moment.',
+    });
     res.end();
   }
 }

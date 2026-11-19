@@ -27,7 +27,9 @@ const CHARS_PER_TOKEN = 4;
 
 const EMPTY_RESULT = {
   original_match_score: null,
+  original_breakdown: null,
   tailored_match_score: null,
+  tailored_breakdown: null,
   tailored_bullets: [],
   missing_keywords: [],
   interview_questions: [],

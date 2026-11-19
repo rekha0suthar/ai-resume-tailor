@@ -18,12 +18,19 @@
  *   canRevert:     whether the undo stack has a previous version
  *   scoreTrail:    committed updatedScores, oldest→newest (for "78 → 81")
  *   currentScore:  latest committed updatedScore, or null before any
- *   start(base, jobDescription): seed a fresh session from a newly tailored
- *                  resume; the JD rides along on every turn so the server
- *                  can re-score against the SAME job description
- *   send(instruction): run one refinement turn
+ *   currentBreakdown: component breakdown of the current version (seeded
+ *                  from the tailored breakdown, updated by each turn)
+ *   start(base, jobDescription, baseScore, baseBreakdown): seed a fresh
+ *                  session from a newly tailored resume; the JD rides along
+ *                  on every turn so the server can re-score against the
+ *                  SAME job description, and the tailored score/breakdown
+ *                  seed the consistency anchor sent with each request
+ *   send(instruction): run one refinement turn — sends the previous
+ *                  score + breakdown so the model UPDATES the breakdown
+ *                  instead of re-judging from scratch
  *   revert():      restore the previous version (undo stack, cap 10) —
- *                  score trail is restored alongside the resume
+ *                  score trail and breakdown are restored alongside the
+ *                  resume, in lockstep
  *   reset():       clear the whole session
  *
  * Streaming behaviour mirrors useTailor: accumulate SSE chunks, strip any
@@ -48,26 +55,36 @@ export function useRefine() {
   const [pendingNote, setPendingNote] = useState('');
   const [currentResume, setCurrentResume] = useState('');
   const [liveResume, setLiveResume] = useState('');
-  // Undo stack entries are { resume, trail } — the score trail is versioned
-  // WITH the resume so revert rolls the score strip back in lockstep.
+  // Undo stack entries are { resume, trail, breakdown } — the score trail
+  // and the component breakdown are versioned WITH the resume so revert
+  // rolls the score strip (numbers AND breakdown panel) back in lockstep.
   const [versions, setVersions] = useState([]);
   const [scoreTrail, setScoreTrail] = useState([]);
+  // Component breakdown of the CURRENT version — the consistency anchor
+  // sent with every refine request so cosmetic edits can't swing the score.
+  const [breakdown, setBreakdown] = useState(null);
   const abortRef = useRef(null);
   const jdRef = useRef('');
+  const baseScoreRef = useRef(null);
 
-  const start = useCallback((baseResume, jobDescription = '') => {
-    if (abortRef.current) abortRef.current.abort();
-    abortRef.current = null;
-    jdRef.current = jobDescription || '';
-    setStatus('idle');
-    setError(null);
-    setMessages([]);
-    setPendingNote('');
-    setCurrentResume(baseResume || '');
-    setLiveResume('');
-    setVersions([]);
-    setScoreTrail([]);
-  }, []);
+  const start = useCallback(
+    (baseResume, jobDescription = '', baseScore = null, baseBreakdown = null) => {
+      if (abortRef.current) abortRef.current.abort();
+      abortRef.current = null;
+      jdRef.current = jobDescription || '';
+      baseScoreRef.current = typeof baseScore === 'number' ? baseScore : null;
+      setStatus('idle');
+      setError(null);
+      setMessages([]);
+      setPendingNote('');
+      setCurrentResume(baseResume || '');
+      setLiveResume('');
+      setVersions([]);
+      setScoreTrail([]);
+      setBreakdown(baseBreakdown || null);
+    },
+    []
+  );
 
   const reset = useCallback(() => start(''), [start]);
 
@@ -77,6 +94,7 @@ export function useRefine() {
     setVersions(versions.slice(0, -1));
     setCurrentResume(previous.resume);
     setScoreTrail(previous.trail);
+    setBreakdown(previous.breakdown);
     setLiveResume('');
   }, [versions, status]);
 
@@ -90,6 +108,10 @@ export function useRefine() {
       const history = clampHistory(messages);
       const prevResume = currentResume;
       const prevTrail = scoreTrail;
+      const prevBreakdown = breakdown;
+      const prevScore = prevTrail.length
+        ? prevTrail[prevTrail.length - 1]
+        : baseScoreRef.current;
 
       if (abortRef.current) abortRef.current.abort();
       const ctrl = new AbortController();
@@ -111,6 +133,10 @@ export function useRefine() {
             instruction: text,
             jobDescription: jdRef.current,
             history,
+            // Consistency anchor: the model updates THIS breakdown instead
+            // of re-judging from scratch (server re-validates both).
+            previousScore: prevScore,
+            previousBreakdown: prevBreakdown,
           }),
           signal: ctrl.signal,
         });
@@ -151,16 +177,19 @@ export function useRefine() {
           }
         }
         if (final?.updatedResume) {
-          // Commit: previous version (resume + score trail) onto the undo
-          // stack (cap 10), new version becomes current.
+          // Commit: previous version (resume + score trail + breakdown)
+          // onto the undo stack (cap 10), new version becomes current.
           setVersions((v) => [
             ...v.slice(-(VERSION_CAP - 1)),
-            { resume: prevResume, trail: prevTrail },
+            { resume: prevResume, trail: prevTrail, breakdown: prevBreakdown },
           ]);
           setCurrentResume(final.updatedResume);
           if (typeof final.updatedScore === 'number') {
             setScoreTrail([...prevTrail, final.updatedScore]);
           }
+          // No/garbage breakdown this turn → keep the previous one as the
+          // anchor for the next turn rather than dropping to null.
+          if (final.updatedBreakdown) setBreakdown(final.updatedBreakdown);
         }
         const note =
           final?.note || latestNote || (final?.updatedResume ? 'Updated the resume.' : '');
@@ -232,7 +261,7 @@ export function useRefine() {
         setError(err?.message || 'Stream interrupted.');
       }
     },
-    [messages, currentResume, scoreTrail, status]
+    [messages, currentResume, scoreTrail, breakdown, status]
   );
 
   return {
@@ -246,6 +275,7 @@ export function useRefine() {
     canRevert: versions.length > 0,
     scoreTrail,
     currentScore: scoreTrail.length ? scoreTrail[scoreTrail.length - 1] : null,
+    currentBreakdown: breakdown,
     start,
     send,
     revert,

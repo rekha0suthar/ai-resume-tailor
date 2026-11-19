@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown } from 'lucide-react';
+import { BREAKDOWN_COMPONENTS } from '../lib/scores.js';
 
 /**
  * ScoreStrip — the before → after match score, pinned to the top of the
@@ -78,17 +80,94 @@ const DeltaBadge = ({ delta }) => {
   );
 };
 
+/* ------------------------------------------------------------------ */
+/* Component breakdown panel — where the computed total comes from     */
+/* ------------------------------------------------------------------ */
+
+/** Bar fill color mirrors scoreColor, but on the fraction of the cap. */
+const barTone = (value, cap) =>
+  value / cap >= 0.75 ? 'bg-success' : value / cap >= 0.5 ? 'bg-warn' : 'bg-error';
+
+const BreakdownBar = ({ value, cap, dim }) => (
+  <div className="flex min-w-0 flex-1 items-center gap-2">
+    <span
+      className={`w-11 shrink-0 text-right text-[11px] font-medium tabular-nums ${
+        value == null ? 'text-slate-600' : dim ? 'text-slate-400' : 'text-slate-200'
+      }`}
+    >
+      {value == null ? '–' : `${value}/${cap}`}
+    </span>
+    <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/10">
+      {value != null && (
+        <div
+          className={`h-full rounded-full ${dim ? 'bg-slate-500/70' : barTone(value, cap)}`}
+          style={{ width: `${Math.round((value / cap) * 100)}%` }}
+        />
+      )}
+    </div>
+  </div>
+);
+
 /**
- * @param original  original_match_score (resume as submitted), or null
- * @param tailored  tailored_match_score (first tailor pass), or null
- * @param trail     committed refine updatedScores, oldest→newest
- * @param streaming true while the tailor stream is still running
+ * Four rows — one per rubric component — original vs current side by side.
+ * The totals above are the SUMS of these rows (computed, not eyeballed), so
+ * this panel is the receipt behind every score the strip shows.
  */
-const ScoreStrip = ({ original, tailored, trail = [], streaming }) => {
+const BreakdownPanel = ({ originalBreakdown, currentBreakdown, currentLabel }) => (
+  <div className="mt-3 border-t border-white/10 pt-3">
+    <div className="mb-1.5 grid grid-cols-[minmax(0,10rem)_1fr_1fr] items-center gap-x-3 max-sm:grid-cols-2">
+      <span aria-hidden="true" className="max-sm:hidden" />
+      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        Original
+      </span>
+      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+        {currentLabel}
+      </span>
+    </div>
+    <ul className="grid gap-2">
+      {BREAKDOWN_COMPONENTS.map(({ key, label, cap }) => (
+        <li
+          key={key}
+          className="grid grid-cols-[minmax(0,10rem)_1fr_1fr] items-center gap-x-3 gap-y-1 max-sm:grid-cols-2"
+        >
+          <span className="truncate text-xs text-slate-300 max-sm:col-span-2">{label}</span>
+          <BreakdownBar value={originalBreakdown?.[key] ?? null} cap={cap} dim />
+          <BreakdownBar value={currentBreakdown?.[key] ?? null} cap={cap} />
+        </li>
+      ))}
+    </ul>
+    <p className="mt-2 text-[11px] text-slate-500">
+      Each total is the sum of these four components, scored on the same
+      fixed rubric.
+    </p>
+  </div>
+);
+
+/**
+ * @param original          original_match_score (resume as submitted), or null
+ * @param tailored          tailored_match_score (first tailor pass), or null
+ * @param trail             committed refine updatedScores, oldest→newest
+ * @param streaming         true while the tailor stream is still running
+ * @param originalBreakdown component breakdown behind `original`, or null
+ * @param breakdown         component breakdown behind the CURRENT score
+ *                          (tailored, or latest refinement), or null
+ */
+const ScoreStrip = ({
+  original,
+  tailored,
+  trail = [],
+  streaming,
+  originalBreakdown = null,
+  breakdown = null,
+}) => {
   const current = trail.length ? trail[trail.length - 1] : tailored;
   const delta = original != null && current != null ? current - original : null;
   const chain = [tailored, ...trail].filter((s) => s != null);
   const showTrail = chain.length > 1 && original != null;
+  const currentLabel = trail.length ? 'Refined' : 'Tailored';
+  const hasBreakdown = Boolean(originalBreakdown || breakdown);
+  const [expanded, setExpanded] = useState(false);
+  const open = expanded && hasBreakdown;
 
   return (
     <motion.section
@@ -121,19 +200,59 @@ const ScoreStrip = ({ original, tailored, trail = [], streaming }) => {
           )}
         </div>
 
-        <div className="flex items-center gap-4 sm:gap-5">
-          <ScoreNumber label="Original" value={original} pending={streaming} dim />
-          <span aria-hidden="true" className="text-lg text-slate-600">
-            {'→'}
-          </span>
-          <ScoreNumber
-            label={trail.length ? 'Refined' : 'Tailored'}
-            value={current}
-            pending={streaming}
-          />
-          <DeltaBadge delta={delta} />
-        </div>
+        {hasBreakdown ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => setExpanded((e) => !e)}
+            title={open ? 'Hide score breakdown' : 'Show score breakdown'}
+            className="-m-1.5 flex items-center gap-4 rounded-xl p-1.5 text-left transition hover:bg-white/5 sm:gap-5"
+          >
+            <ScoreNumber label="Original" value={original} pending={streaming} dim />
+            <span aria-hidden="true" className="text-lg text-slate-600">
+              {'→'}
+            </span>
+            <ScoreNumber label={currentLabel} value={current} pending={streaming} />
+            <DeltaBadge delta={delta} />
+            <ChevronDown
+              size={14}
+              aria-hidden="true"
+              className={`shrink-0 text-slate-500 transition-transform duration-200 ${
+                open ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+        ) : (
+          <div className="flex items-center gap-4 sm:gap-5">
+            <ScoreNumber label="Original" value={original} pending={streaming} dim />
+            <span aria-hidden="true" className="text-lg text-slate-600">
+              {'→'}
+            </span>
+            <ScoreNumber label={currentLabel} value={current} pending={streaming} />
+            <DeltaBadge delta={delta} />
+          </div>
+        )}
       </div>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="breakdown"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            className="overflow-hidden"
+          >
+            <BreakdownPanel
+              originalBreakdown={originalBreakdown}
+              currentBreakdown={breakdown}
+              currentLabel={currentLabel}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <p className="mt-2.5 text-[11px] leading-relaxed text-slate-500">
         Honest tailoring without inventing experience typically gains 5–15
         points. A low ceiling usually means a skills gap — check Keyword gaps

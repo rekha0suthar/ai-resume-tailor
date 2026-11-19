@@ -516,6 +516,11 @@ const ResultsPanel = ({ result, status, refine }) => {
   const originalScore = result?.original_match_score ?? null;
   const tailoredScore = result?.tailored_match_score ?? null;
   const scoreTrail = refine?.scoreTrail || [];
+  const originalBreakdown = result?.original_breakdown ?? null;
+  // Breakdown behind the CURRENT score: once the refine session is seeded
+  // it owns the breakdown (tailored at first, then each refinement's);
+  // before that, fall back to the tailor result directly.
+  const currentBreakdown = refine?.currentBreakdown ?? result?.tailored_breakdown ?? null;
 
   // Once a refinement session is active, the sheet shows the refined version
   // (live-streaming partial while a turn is in flight); copy/download act on
@@ -552,6 +557,8 @@ const ResultsPanel = ({ result, status, refine }) => {
         tailored={tailoredScore}
         trail={scoreTrail}
         streaming={streaming}
+        originalBreakdown={originalBreakdown}
+        breakdown={currentBreakdown}
       />
 
       {/* 2 — Hero: the resume sheet + docked refinement chat. */}

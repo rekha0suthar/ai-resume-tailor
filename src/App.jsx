@@ -102,11 +102,25 @@ const App = () => {
   // stream shows through again.
   useEffect(() => {
     if (status === 'done' && result?.tailoredResume) {
-      startRefine(result.tailoredResume, submittedRef.current.jobDescription);
+      // The tailored score + breakdown seed the refine session's consistency
+      // anchor: each refinement UPDATES this breakdown rather than re-judging.
+      startRefine(
+        result.tailoredResume,
+        submittedRef.current.jobDescription,
+        result.tailored_match_score,
+        result.tailored_breakdown
+      );
     } else if (status === 'idle' || status === 'streaming') {
       resetRefine();
     }
-  }, [status, result?.tailoredResume, startRefine, resetRefine]);
+  }, [
+    status,
+    result.tailoredResume,
+    result.tailored_match_score,
+    result.tailored_breakdown,
+    startRefine,
+    resetRefine,
+  ]);
 
   return (
     <MotionConfig reducedMotion="user">

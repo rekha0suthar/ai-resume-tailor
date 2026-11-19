@@ -1,8 +1,12 @@
 # AI Resume Tailor
 
+[![CI](https://github.com/rekha0suthar/ai-resume-tailor/actions/workflows/ci.yml/badge.svg)](https://github.com/rekha0suthar/ai-resume-tailor/actions/workflows/ci.yml)
+
 Paste (or upload) a resume + a job description, get back **streaming** tailored bullet rewrites, ATS keyword gaps, and likely interview questions. Built end-to-end on free tools — Vite + React + Tailwind on the front, a Vercel Serverless Function calling Groq's Llama 3.3 70B on the back.
 
 🔗 **Live**: [ai-resume-tailor-ruby.vercel.app](https://ai-resume-tailor-ruby.vercel.app/)
+
+<!-- TODO: demo GIF -->
 
 ---
 
@@ -20,8 +24,8 @@ Paste (or upload) a resume + a job description, get back **streaming** tailored 
 ## Architecture
 
 ```
-Browser              Vercel Edge                 Groq Cloud
--------              -----------                 ----------
+Browser         Vercel serverless (Node)         Groq Cloud
+-------         ------------------------         ----------
 React UI ─ POST /api/tailor ─▶  api/tailor.js  ──▶  Llama 3.3 70B
        (SSE chunks)                                  (stream=true)
       ◀──── event: chunk { text } ───────────────────┘
@@ -77,9 +81,21 @@ npm run dev
 
 Open `http://localhost:5173`. The custom Vite plugin in `vite.config.js` routes `/api/*` through your serverless function files, so streaming works locally with no Vercel CLI needed.
 
+Run the unit tests (schema validation + SSE frame parsing) with:
+
+```bash
+npm test
+```
+
 ## Deploy
 
-Connect the repo to Vercel, add `GROQ_API_KEY` under Environment Variables, deploy. Every `git push origin main` triggers a fresh deploy.
+Connect the repo to Vercel, add `GROQ_API_KEY` under Environment Variables, deploy. Every `git push origin main` triggers a fresh deploy. Optionally set `GROQ_MODEL` to swap models without a code change (defaults to `llama-3.3-70b-versatile`).
+
+## Known limitations & next steps
+
+- **Rate limiting is best-effort.** The limiter in `api/tailor.js` is an in-memory sliding window, so it's per serverless instance — a cold start resets the count. Enough to stop casual abuse of a free demo; a shared store (e.g. Upstash Redis + `@upstash/ratelimit`) is the production answer.
+- **No auth or accounts.** Everything is anonymous and stateless; nothing you paste is stored.
+- **Model availability shifts.** Groq rotates hosted models; when the default is deprecated, set the `GROQ_MODEL` env var instead of redeploying code.
 
 ## Roadmap
 

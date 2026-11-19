@@ -182,7 +182,15 @@ const looksLikeNameHeading = (text) =>
   !CONTACTISH_RE.test(text);
 
 const headingLevel = (line) =>
-  line.startsWith('### ') ? 3 : line.startsWith('## ') ? 2 : line.startsWith('# ') ? 1 : 0;
+  line.startsWith('#### ')
+    ? 4
+    : line.startsWith('### ')
+      ? 3
+      : line.startsWith('## ')
+        ? 2
+        : line.startsWith('# ')
+          ? 1
+          : 0;
 
 /**
  * Parse tailored-resume markdown into the document structure above.
@@ -216,8 +224,8 @@ export function parseResume(markdown) {
   }
   // Normally sections are "## " and entries "### "; when a document has no
   // "## " body headings at all, its "### " headings are promoted to sections.
+  // Anything deeper than the section level (down to "#### ") parses as an entry.
   const sectionLevel = h2Count > 0 || h3Count === 0 ? 2 : 3;
-  const entryLevel = sectionLevel === 2 ? 3 : 99;
 
   let section = null; // current { heading, blocks }
   let entry = null; //   current { type: 'entry', ... } inside section
@@ -263,7 +271,10 @@ export function parseResume(markdown) {
 
     const lvl = headingLevel(line);
 
-    if (lvl === entryLevel) {
+    // Any heading deeper than the section level is a role/entry heading —
+    // models sometimes emit "#### Role" under "## Section" (one level deeper
+    // than prompted), which must not leak raw hashes into the document.
+    if (lvl > sectionLevel && lvl <= 4) {
       const { title, dates } = parseRoleHeading(line.slice(lvl + 1));
       entry = { type: 'entry', title, dates, blocks: [] };
       if (!section) {

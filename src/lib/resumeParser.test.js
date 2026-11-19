@@ -318,3 +318,37 @@ describe('sectionHeadings', () => {
     expect(sectionHeadings(undefined)).toEqual([]);
   });
 });
+
+
+describe('#### role headings (one level deeper than prompted)', () => {
+  it('parses #### under ## sections as an entry — raw hashes never leak', () => {
+    const md = [
+      '## JANE DOE',
+      'jane@example.com | github.com/jane',
+      '',
+      '## EXPERIENCE',
+      '#### Frontend Engineer, Brightcart (Jan 2024 - present)',
+      '- Shipped a product-listing UI for 50k SKUs',
+    ].join('\n');
+    const doc = parseResume(md);
+    const exp = doc.sections.find((s) => /experience/i.test(s.heading || ''));
+    expect(exp).toBeTruthy();
+    const entry = exp.blocks.find((b) => b.type === 'entry');
+    expect(entry).toBeTruthy();
+    expect(entry.title).toMatch(/Frontend Engineer, Brightcart/);
+    expect(entry.dates).toMatch(/Jan 2024/);
+    expect(JSON.stringify(doc)).not.toContain('####');
+  });
+
+  it('parses #### under promoted ### sections as an entry', () => {
+    const md = [
+      '### Experience',
+      '#### Backend Engineer, Acme (2022 - 2024)',
+      '- Built APIs',
+    ].join('\n');
+    const doc = parseResume(md);
+    const entry = doc.sections[0].blocks.find((b) => b.type === 'entry');
+    expect(entry).toBeTruthy();
+    expect(entry.title).toMatch(/Backend Engineer, Acme/);
+  });
+});

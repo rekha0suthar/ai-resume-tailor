@@ -3,9 +3,7 @@ import { Wand2, PlayCircle, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PdfUpload from './PdfUpload.jsx';
 import { SAMPLE_RESUME, SAMPLE_JD } from '../lib/sample.js';
-import { RESUME_CAP, JD_CAP } from '../lib/prompts.js';
-
-const MIN_CHARS = 50;
+import { RESUME_CAP, JD_CAP, INPUT_MIN } from '../lib/prompts.js';
 
 /**
  * One labeled input: label + helper line, textarea, and a char count that
@@ -14,7 +12,7 @@ const MIN_CHARS = 50;
  */
 const Field = ({ label, helper, value, onChange, placeholder, rows = 10, cap, extra, id }) => {
   const len = value.trim().length;
-  const tooShort = len > 0 && len < MIN_CHARS;
+  const tooShort = len > 0 && len < INPUT_MIN;
   const nearCap = cap && value.length >= cap * 0.9;
   const overCap = cap && value.length > cap;
   return (
@@ -29,7 +27,7 @@ const Field = ({ label, helper, value, onChange, placeholder, rows = 10, cap, ex
           }`}
         >
           {tooShort
-            ? `${len} chars · need at least ${MIN_CHARS}`
+            ? `${len} chars · need at least ${INPUT_MIN}`
             : nearCap
               ? `${value.length.toLocaleString()} / ${cap.toLocaleString()} chars${overCap ? ' · extra text is trimmed' : ''}`
               : len > 0
@@ -81,8 +79,8 @@ const TailorForm = ({
 
   const canSubmit =
     !isStreaming &&
-    resumeText.trim().length >= MIN_CHARS &&
-    jobDescription.trim().length >= MIN_CHARS;
+    resumeText.trim().length >= INPUT_MIN &&
+    jobDescription.trim().length >= INPUT_MIN;
 
   return (
     <form onSubmit={submit} className="glass rounded-2xl p-5 sm:p-6">

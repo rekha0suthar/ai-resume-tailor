@@ -18,10 +18,14 @@
 import { useCallback, useRef, useState } from 'react';
 import { parse, ALL } from 'partial-json';
 import { partialValidate } from '../lib/schema.js';
-import { parseSSE } from '../lib/sse.js';
+import { parseSSE, httpErrorMessage } from '../lib/sse.js';
 import { stripJsonFences } from '../lib/fences.js';
 
-const empty = {
+// Rough chars-per-token for the "~N tokens streamed" progress hint — a
+// display approximation, not an accounting of real tokenizer output.
+const CHARS_PER_TOKEN = 4;
+
+const EMPTY_RESULT = {
   original_match_score: null,
   tailored_match_score: null,
   tailored_bullets: [],
@@ -32,7 +36,7 @@ const empty = {
 
 export function useTailor() {
   const [status, setStatus] = useState('idle');
-  const [result, setResult] = useState(empty);
+  const [result, setResult] = useState(EMPTY_RESULT);
   const [error, setError] = useState(null);
   const [errorCode, setErrorCode] = useState(null);
   const [tokens, setTokens] = useState(0);
@@ -42,7 +46,7 @@ export function useTailor() {
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = null;
     setStatus('idle');
-    setResult(empty);
+    setResult(EMPTY_RESULT);
     setError(null);
     setErrorCode(null);
     setTokens(0);
@@ -54,7 +58,7 @@ export function useTailor() {
     abortRef.current = ctrl;
 
     setStatus('streaming');
-    setResult(empty);
+    setResult(EMPTY_RESULT);
     setError(null);
     setErrorCode(null);
     setTokens(0);
@@ -77,18 +81,8 @@ export function useTailor() {
     const ct = res.headers.get('content-type') || '';
     if (!res.ok || !ct.includes('text/event-stream')) {
       // Server returned a regular JSON error or HTML — surface it.
-      const raw = await res.text();
-      let msg = `Request failed (HTTP ${res.status}).`;
-      try {
-        const j = JSON.parse(raw);
-        msg = j?.error || msg;
-      } catch {
-        if (raw.trimStart().startsWith('<')) {
-          msg = 'Server returned HTML — run with `npm run dev` (which routes /api) or check the deploy.';
-        }
-      }
       setStatus('error');
-      setError(msg);
+      setError(await httpErrorMessage(res));
       setErrorCode(res.status);
       return;
     }
@@ -110,7 +104,7 @@ export function useTailor() {
         }
         if (event === 'chunk' && typeof parsed.text === 'string') {
           accumulator += parsed.text;
-          setTokens((n) => n + Math.max(1, Math.round(parsed.text.length / 4)));
+          setTokens((n) => n + Math.max(1, Math.round(parsed.text.length / CHARS_PER_TOKEN)));
           try {
             // Without json_object mode the model may wrap the JSON in a
             // ```json fence — strip it before the partial parse.

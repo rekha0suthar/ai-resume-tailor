@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseSSE } from './sse.js';
+import { parseSSE, httpErrorMessage } from './sse.js';
 
 describe('parseSSE', () => {
   it('parses a single complete frame', () => {
@@ -49,5 +49,29 @@ describe('parseSSE', () => {
   it('skips frames with no data', () => {
     const { events } = parseSSE('event: ping\n\n');
     expect(events).toEqual([]);
+  });
+});
+
+describe('httpErrorMessage', () => {
+  const fakeRes = (status, body) => ({ status, text: async () => body });
+
+  it("prefers the server's JSON error message", async () => {
+    const res = fakeRes(429, JSON.stringify({ error: 'Too many requests.' }));
+    expect(await httpErrorMessage(res)).toBe('Too many requests.');
+  });
+
+  it('falls back to the HTTP status for JSON without an error key', async () => {
+    const res = fakeRes(500, JSON.stringify({ ok: false }));
+    expect(await httpErrorMessage(res)).toBe('Request failed (HTTP 500).');
+  });
+
+  it('gives the dev-routing hint for an HTML body', async () => {
+    const res = fakeRes(200, '<!doctype html><html></html>');
+    expect(await httpErrorMessage(res)).toMatch(/npm run dev/);
+  });
+
+  it('falls back to the HTTP status for any other body', async () => {
+    const res = fakeRes(502, 'Bad gateway');
+    expect(await httpErrorMessage(res)).toBe('Request failed (HTTP 502).');
   });
 });

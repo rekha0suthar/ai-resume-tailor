@@ -3,6 +3,10 @@ import { TEMPLATES, DEFAULT_TEMPLATE } from './ResumePreview.jsx';
 
 const A4 = { w: 210, h: 297 }; // mm
 
+// Spilling past page 1 by less than ~a text line doesn't count as overflow —
+// print rounding would usually absorb it anyway.
+const OVERFLOW_TOLERANCE_PX = 18;
+
 /** "20mm 22mm" → { v: 20, h: 22 } (one value → both). */
 const parseMargin = (pageMargin) => {
   const nums = (String(pageMargin).match(/[\d.]+/g) || ['20']).map(Number);
@@ -53,8 +57,7 @@ const PageBoundary = ({ template, onOverflowChange, children }) => {
       // Printable page height, scaled to the on-screen content width.
       const pageH = (contentW * (A4.h - 2 * v)) / (A4.w - 2 * h);
       const y = padT + pageH;
-      // Tolerance: spilling by less than ~a line doesn't count as overflow.
-      const overflows = sheet.scrollHeight > y + 18;
+      const overflows = sheet.scrollHeight > y + OVERFLOW_TOLERANCE_PX;
       setBoundary(overflows ? y : null);
       notifyRef.current?.(overflows);
     };

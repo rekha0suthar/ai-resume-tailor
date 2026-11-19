@@ -35,7 +35,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { parse, ALL } from 'partial-json';
 import { partialValidateRefine } from '../lib/schema.js';
-import { parseSSE } from '../lib/sse.js';
+import { parseSSE, httpErrorMessage } from '../lib/sse.js';
 import { stripJsonFences } from '../lib/fences.js';
 import { clampHistory } from '../lib/history.js';
 
@@ -123,18 +123,9 @@ export function useRefine() {
 
       const ct = res.headers.get('content-type') || '';
       if (!res.ok || !ct.includes('text/event-stream')) {
-        const raw = await res.text();
-        let msg = `Request failed (HTTP ${res.status}).`;
-        try {
-          const j = JSON.parse(raw);
-          msg = j?.error || msg;
-        } catch {
-          if (raw.trimStart().startsWith('<')) {
-            msg = 'Server returned HTML — run with `npm run dev` (which routes /api) or check the deploy.';
-          }
-        }
+        // Server returned a regular JSON error or HTML — surface it.
         setStatus('error');
-        setError(msg);
+        setError(await httpErrorMessage(res));
         return;
       }
 

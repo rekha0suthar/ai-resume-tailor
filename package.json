@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.2.0",
   "type": "module",
-  "description": "Paste a resume and a job description, get streaming tailored bullet rewrites, ATS keyword gaps, and likely interview questions back. Built on Groq Llama 3.3 70B.",
+  "description": "Paste a resume and a job description, get a streaming tailored resume, ATS keyword gaps, and likely interview questions back. Built on Groq gpt-oss-120b.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

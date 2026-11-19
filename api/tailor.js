@@ -17,7 +17,13 @@
  * whole completion into a single delta on gpt-oss-120b).
  */
 import Groq from 'groq-sdk';
-import { MODEL, MAX_TOKENS, SYSTEM_PROMPT, buildUserPrompt } from '../src/lib/prompts.js';
+import {
+  MODEL,
+  MAX_TOKENS,
+  INPUT_MIN,
+  SYSTEM_PROMPT,
+  buildUserPrompt,
+} from '../src/lib/prompts.js';
 import { rateLimited, clientIp } from './_lib/ratelimit.js';
 import { groqErrorMessage } from './_lib/groqError.js';
 
@@ -59,10 +65,10 @@ export default async function handler(req, res) {
   const resumeText = (body?.resumeText || '').trim();
   const jobDescription = (body?.jobDescription || '').trim();
 
-  if (resumeText.length < 50) {
+  if (resumeText.length < INPUT_MIN) {
     return res.status(400).json({ error: 'Resume looks too short — paste at least your summary + experience.' });
   }
-  if (jobDescription.length < 50) {
+  if (jobDescription.length < INPUT_MIN) {
     return res.status(400).json({ error: 'Job description looks too short — paste the full posting.' });
   }
 

@@ -34,7 +34,7 @@ const Footer = () => (
           <ExternalLink size={11} /> Build notes
         </a>
         <span className="text-slate-700">·</span>
-        <span>Llama 3.3 70B via Groq · MIT</span>
+        <span>gpt-oss-120b via Groq · MIT</span>
       </p>
     </div>
   </footer>

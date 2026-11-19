@@ -30,6 +30,24 @@ const fadeIn = {
   transition: { duration: 0.25 },
 };
 
+/** How long the "Copied" check-mark lingers on copy buttons. */
+const COPY_FEEDBACK_MS = 1600;
+
+/** Delay between swapping document.title and opening the print dialog. */
+const PRINT_TITLE_SETTLE_MS = 50;
+
+/** Trigger a browser download of a Blob, then release the object URL. */
+const saveBlob = (blob, fileName) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
+
 /* ------------------------------------------------------------------ */
 /* Secondary panels: collapsible, count-badged                         */
 /* ------------------------------------------------------------------ */
@@ -125,7 +143,7 @@ const BulletCard = ({ bullet, index }) => {
       await navigator.clipboard.writeText(editValue);
       setCopied(true);
       toast.success('Rewrite copied');
-      setTimeout(() => setCopied(false), 1600);
+      setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
     } catch {
       toast.error('Could not copy.');
     }
@@ -318,14 +336,7 @@ const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
       const doc = parseResume(markdown);
       const blob = await pdf(<ResumePdf doc={doc} template={template} />).toBlob();
       const fileName = pdfFileName(doc.name);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      saveBlob(blob, fileName);
       toast.success(`${fileName} downloaded`);
     } catch (err) {
       console.error('[pdf download]', err);
@@ -346,13 +357,14 @@ const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
     const name = (parseResume(markdown).name || '').replace(/[\\/:*?"<>|]+/g, ' ').trim();
     document.title = name ? `${name} - Resume` : 'Tailored Resume';
     window.addEventListener('afterprint', restore, { once: true });
+    // One tick for the new title to land before the print dialog snapshots it.
     window.setTimeout(() => {
       try {
         window.print();
       } finally {
         restore();
       }
-    }, 50);
+    }, PRINT_TITLE_SETTLE_MS);
   };
 
   const copy = async () => {
@@ -360,22 +372,14 @@ const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
       await navigator.clipboard.writeText(markdown);
       setCopied(true);
       toast.success('Markdown copied');
-      setTimeout(() => setCopied(false), 1600);
+      setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
     } catch {
       toast.error('Could not copy.');
     }
   };
 
   const downloadMd = () => {
-    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'tailored-resume.md';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    saveBlob(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }), 'tailored-resume.md');
     toast.success('tailored-resume.md downloaded');
   };
 

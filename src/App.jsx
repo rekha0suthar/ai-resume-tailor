@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Toaster } from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
-import toast from 'react-hot-toast';
 import { Hourglass, PencilLine, RotateCcw, ShieldCheck, TriangleAlert } from 'lucide-react';
 import Navbar from './components/Navbar.jsx';
 import Hero from './components/Hero.jsx';

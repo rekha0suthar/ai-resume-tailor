@@ -14,6 +14,9 @@ export const MODEL =
 export const MAX_TOKENS = 8192;
 export const RESUME_CAP = 8000;
 export const JD_CAP = 6000;
+// Minimum characters for the resume and the JD — shared by the form's
+// submit gate and the server-side validation so they can never drift.
+export const INPUT_MIN = 50;
 
 /**
  * The scoring rubric is shared VERBATIM between the tailor and refine

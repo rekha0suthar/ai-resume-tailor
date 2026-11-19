@@ -1,6 +1,9 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { Upload, FileText, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { INPUT_MIN } from '../lib/prompts.js';
+
+const MAX_PDF_BYTES = 5 * 1024 * 1024; // 5 MB — plenty for a text resume
 
 async function extractTextFromPdf(file) {
   // Lazy-load pdfjs — keeps the initial bundle under ~150KB.
@@ -38,14 +41,15 @@ const PdfUpload = ({ onExtract, disabled }) => {
         toast.error('Please upload a PDF file.');
         return;
       }
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > MAX_PDF_BYTES) {
         toast.error('PDF is larger than 5 MB — paste the text instead.');
         return;
       }
       setLoading(true);
       try {
         const text = await extractTextFromPdf(file);
-        if (text.length < 50) {
+        // Below the submit threshold → extraction effectively failed.
+        if (text.length < INPUT_MIN) {
           toast.error('Could not read text from that PDF (it may be a scanned image).');
         } else {
           onExtract(text);
@@ -53,7 +57,7 @@ const PdfUpload = ({ onExtract, disabled }) => {
           toast.success(`Extracted ${text.length.toLocaleString()} characters.`);
         }
       } catch (err) {
-        console.error(err);
+        console.error('[pdf upload]', err);
         toast.error('Failed to read PDF. Try pasting the text instead.');
       } finally {
         setLoading(false);

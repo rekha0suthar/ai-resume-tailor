@@ -168,6 +168,18 @@ const ChatRefine = ({ refine, sections = [], prefill }) => {
             {label}
           </button>
         ))}
+        {/* Prefills instead of submitting — the user says WHICH order. */}
+        <button
+          type="button"
+          onClick={() => {
+            setDraft('Reorder the sections: ');
+            inputRef.current?.focus();
+          }}
+          disabled={streaming}
+          className="rounded-full border border-dashed border-white/15 bg-transparent px-2.5 py-1 text-[11px] font-medium text-slate-400 transition hover:border-accent/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Reorder sections…
+        </button>
       </div>
 
       <form

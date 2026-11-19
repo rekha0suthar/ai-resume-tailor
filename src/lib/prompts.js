@@ -132,6 +132,11 @@ Rules:
   contact, portfolio, GitHub, or project links.
 - Keep the markdown conventions: "## " section headings, "### " sub-headings
   (e.g. individual roles), "- " bullets, plain paragraphs elsewhere.
+- Preserve the resume's section structure and order, EXCEPT when the user
+  explicitly asks to reorder, move, merge, or remove sections — then do
+  exactly that. When reordering or merging, keep ALL content intact and
+  unchanged apart from its position; only drop content when removal is
+  explicitly requested.
 - Obey length instructions faithfully (shorter / longer / one-page): cutting
   means tightening wording and dropping the weakest content; expanding means
   elaborating on experience ALREADY in the resume — never fabricating.

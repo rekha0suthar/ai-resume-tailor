@@ -18,43 +18,9 @@
  */
 import Groq from 'groq-sdk';
 import { MODEL, MAX_TOKENS, SYSTEM_PROMPT, buildUserPrompt } from '../src/lib/prompts.js';
+import { rateLimited, clientIp } from './_lib/ratelimit.js';
 
 export const config = { maxDuration: 30 };
-
-/**
- * In-memory sliding-window rate limiter, keyed by client IP.
- *
- * Serverless caveat: this Map lives per warm instance, so it's a best-effort
- * guard, not a hard quota — a cold start or a second instance gets a fresh
- * window. Good enough to stop casual abuse of a free-tier demo without adding
- * a dependency. The production answer is a shared store (e.g. Upstash Redis
- * via @upstash/ratelimit).
- */
-const RATE_LIMIT = 10; // requests…
-const RATE_WINDOW_MS = 10 * 60 * 1000; // …per 10 minutes
-const hits = new Map(); // ip -> [timestamps]
-let lastSweep = Date.now();
-
-function rateLimited(ip) {
-  const now = Date.now();
-  // Periodic cleanup so the Map doesn't grow unbounded on long-lived instances.
-  if (now - lastSweep > RATE_WINDOW_MS) {
-    lastSweep = now;
-    for (const [key, times] of hits) {
-      const fresh = times.filter((t) => now - t < RATE_WINDOW_MS);
-      if (fresh.length) hits.set(key, fresh);
-      else hits.delete(key);
-    }
-  }
-  const recent = (hits.get(ip) || []).filter((t) => now - t < RATE_WINDOW_MS);
-  if (recent.length >= RATE_LIMIT) {
-    hits.set(ip, recent);
-    return true;
-  }
-  recent.push(now);
-  hits.set(ip, recent);
-  return false;
-}
 
 export default async function handler(req, res) {
   // Same-origin SPA: no Access-Control-Allow-Origin header on purpose —
@@ -68,11 +34,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const ip =
-    (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
-    req.socket?.remoteAddress ||
-    'unknown';
-  if (rateLimited(ip)) {
+  if (rateLimited(clientIp(req))) {
     return res.status(429).json({
       error: 'Too many requests — please wait a few minutes and try again.',
     });

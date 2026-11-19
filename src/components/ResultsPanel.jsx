@@ -18,10 +18,10 @@ import {
 import toast from 'react-hot-toast';
 import ChatRefine from './ChatRefine.jsx';
 import ScoreStrip from './ScoreStrip.jsx';
-import PageBoundary from './PageBoundary.jsx';
 import ResumePreview, { TEMPLATES, TEMPLATE_IDS, DEFAULT_TEMPLATE } from './ResumePreview.jsx';
 import { parseResume, sectionHeadings } from '../lib/resumeParser.js';
 import { pdfFileName } from '../pdf/pdfStyles.js';
+import { usePdfPageCount, loadPdfModule } from '../hooks/usePdfPageCount.js';
 
 const fadeIn = {
   initial: { opacity: 0, y: 8 },
@@ -287,6 +287,45 @@ const ResumePrintSheet = ({ markdown, template }) => {
   );
 };
 
+/**
+ * Honest page-count badge: shows how many pages the ACTUAL downloadable
+ * PDF has (rendered in the background), not an estimate off the HTML
+ * preview — the two paginate differently (different fonts and metrics).
+ */
+const PdfPageBadge = ({ status, pages, template }) => {
+  if (status === 'checking') {
+    return (
+      <span
+        aria-live="polite"
+        className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-surface-1 px-2.5 py-1 text-[11px] font-medium text-slate-400"
+      >
+        <Loader2 size={11} aria-hidden="true" className="animate-spin" />
+        {pages ? `PDF: ${pages} ${pages === 1 ? 'page' : 'pages'}` : 'Checking PDF…'}
+      </span>
+    );
+  }
+  if (status !== 'ready' || !pages) return null;
+  if (pages === 1) {
+    return (
+      <span
+        aria-live="polite"
+        className="inline-flex items-center gap-1.5 rounded-full border border-success/40 bg-success/10 px-2.5 py-1 text-[11px] font-medium text-success"
+      >
+        <Check size={11} aria-hidden="true" /> PDF: 1 page
+      </span>
+    );
+  }
+  return (
+    <span
+      aria-live="polite"
+      className="inline-flex items-center gap-1.5 rounded-full border border-warn/40 bg-warn/10 px-2.5 py-1 text-[11px] font-medium text-warn"
+    >
+      PDF: {pages} pages — try &ldquo;Fit to one page&rdquo;
+      {template === 'compact' ? '' : ' or the Compact template'}
+    </span>
+  );
+};
+
 /** Paper-sheet skeleton while the tailored resume is still streaming in. */
 const SheetSkeleton = () => (
   <div
@@ -311,8 +350,12 @@ const SheetSkeleton = () => (
 const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
   const [copied, setCopied] = useState(false);
   const [template, setTemplate] = useState(loadStoredTemplate);
-  const [overflows, setOverflows] = useState(false);
   const [generating, setGenerating] = useState(false);
+
+  // True page count of the downloadable PDF, re-checked (debounced) after
+  // streaming/refinement settles and on template switches. Also pre-warms
+  // the lazy PDF chunk so the Download click below is instant.
+  const pageCount = usePdfPageCount(markdown, template, !busy);
 
   const changeTemplate = (id) => {
     setTemplate(id);
@@ -325,14 +368,14 @@ const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
 
   // Direct PDF download (what testers actually asked for — twice): render
   // the parsed resume through @react-pdf and save "<Name> - Resume.pdf".
-  // The PDF engine is heavy, so it loads through a dynamic import on first
-  // click and stays out of the main chunk; ResumePdf re-exports `pdf` so
-  // one import covers both.
+  // The PDF engine is heavy, so it stays out of the main chunk behind
+  // loadPdfModule (shared with the page-count hook, which idle-loads it,
+  // so by the time anyone clicks this the chunk is normally warm).
   const downloadPdf = async () => {
     if (generating) return;
     setGenerating(true);
     try {
-      const { default: ResumePdf, pdf } = await import('../pdf/ResumePdf.jsx');
+      const { default: ResumePdf, pdf } = await loadPdfModule();
       const doc = parseResume(markdown);
       const blob = await pdf(<ResumePdf doc={doc} template={template} />).toBlob();
       const fileName = pdfFileName(doc.name);
@@ -386,7 +429,10 @@ const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
   return (
     <motion.div {...fadeIn} className="min-w-0">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
-        <TemplateTabs value={template} onChange={changeTemplate} />
+        <div className="flex flex-wrap items-center gap-2.5">
+          <TemplateTabs value={template} onChange={changeTemplate} />
+          <PdfPageBadge status={pageCount.status} pages={pageCount.pages} template={template} />
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -430,17 +476,9 @@ const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
         </div>
       </div>
 
-      {overflows && !busy && (
-        <p className="mb-2 text-center text-[11px] text-warn/90">
-          Runs past one page — try &ldquo;Fit to one page&rdquo; or the Compact
-          template.
-        </p>
-      )}
-      <PageBoundary template={template} onOverflowChange={setOverflows}>
-        <div className={busy ? 'sheet-loading rounded-sm' : undefined}>
-          <ResumePreview markdown={markdown} template={template} onSectionEdit={onSectionEdit} />
-        </div>
-      </PageBoundary>
+      <div className={busy ? 'sheet-loading rounded-sm' : undefined}>
+        <ResumePreview markdown={markdown} template={template} onSectionEdit={onSectionEdit} />
+      </div>
       <p className="mt-2.5 text-center text-[11px] text-slate-500">
         Hover a section heading on the sheet to request changes to just that
         section.

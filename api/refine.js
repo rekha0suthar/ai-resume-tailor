@@ -5,6 +5,10 @@
  * Body: {
  *   resumeMarkdown: string   — the CURRENT tailored resume (markdown),
  *   instruction:    string   — what to change ("Make it one page", …),
+ *   jobDescription?: string  — the target JD; when present, the model also
+ *                              returns "updatedScore" (same rubric as
+ *                              /api/tailor, same JD → comparable numbers).
+ *                              Clamped server-side; absent → no score.
  *   history?:       [{ role: 'user'|'assistant', content }]
  *                            — up to 6 prior turns for iterative edits
  *                              (validated + clamped server-side).
@@ -15,9 +19,9 @@
  *   - event: done    data: { ok: true }
  *   - event: error   data: { error }
  *
- * The model returns JSON { note, updatedResume } with the one-sentence note
- * FIRST so it streams into the chat bubble while the long resume is still
- * generating. JSON is prompt-enforced, not response_format json_object —
+ * The model returns JSON { note, updatedScore, updatedResume } with the
+ * one-sentence note FIRST so it streams into the chat bubble while the long
+ * resume is still generating. JSON is prompt-enforced, not response_format json_object —
  * json_object mode buffers gpt-oss-120b output into a single end-of-stream
  * delta (see api/tailor.js).
  */
@@ -30,6 +34,7 @@ import {
   REFINE_RESUME_MIN,
   INSTRUCTION_MIN,
   INSTRUCTION_MAX,
+  JD_CAP,
 } from '../src/lib/prompts.js';
 import { clampHistory } from '../src/lib/history.js';
 import { rateLimited, clientIp } from './_lib/ratelimit.js';
@@ -71,6 +76,13 @@ export default async function handler(req, res) {
   }
   const resumeMarkdown = (body?.resumeMarkdown || '').trim();
   const instruction = (body?.instruction || '').trim();
+  // Optional: with a JD the model re-scores the revised resume on the same
+  // rubric. Clamp server-side (buildRefineUserPrompt trims again — belt and
+  // braces against a hostile client inflating the prompt).
+  const jobDescription =
+    typeof body?.jobDescription === 'string'
+      ? body.jobDescription.trim().slice(0, JD_CAP)
+      : '';
   // Never trust the wire: drop malformed turns, cap content length, keep
   // only the most recent turns. (buildRefineUserPrompt caps the resume.)
   const history = clampHistory(body?.history);
@@ -111,7 +123,7 @@ export default async function handler(req, res) {
         // Prior turns (user instructions + assistant notes) give the model
         // conversational context for follow-ups like "a bit longer again".
         ...history,
-        { role: 'user', content: buildRefineUserPrompt(resumeMarkdown, instruction) },
+        { role: 'user', content: buildRefineUserPrompt(resumeMarkdown, instruction, jobDescription) },
       ],
       temperature: 0.3,
       max_tokens: MAX_TOKENS,

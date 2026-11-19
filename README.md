@@ -6,7 +6,7 @@ Paste (or upload) a resume + a job description, and watch a **complete tailored 
 
 🔗 **Live**: [ai-resume-tailor-ruby.vercel.app](https://ai-resume-tailor-ruby.vercel.app/)
 
-<!-- TODO: demo GIF -->
+![Demo: tailoring a resume — live streaming, before/after match score, templates](docs/demo.gif)
 
 ---
 

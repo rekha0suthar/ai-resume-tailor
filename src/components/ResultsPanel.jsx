@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Copy, Check, Pencil, Target, KeyRound, MessageSquare, FileText, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ChatRefine from './ChatRefine.jsx';
 
 const fadeIn = {
   initial: { opacity: 0, y: 8 },
@@ -294,12 +295,16 @@ const importanceClasses = {
   'nice-to-have': 'bg-yellow-500/15 text-yellow-200 border-yellow-400/40',
 };
 
-const ResultsPanel = ({ result, status }) => {
+const ResultsPanel = ({ result, status, refine }) => {
   const streaming = status === 'streaming';
   const bullets = result?.tailored_bullets || [];
   const keywords = result?.missing_keywords || [];
   const questions = result?.interview_questions || [];
-  const tailoredResume = result?.tailoredResume || '';
+  // Once a refinement session is active, the card shows the refined version
+  // (live-streaming partial while a turn is in flight); copy/download act on
+  // whatever is displayed, i.e. always the CURRENT version.
+  const refinedResume = refine ? refine.liveResume || refine.currentResume : '';
+  const tailoredResume = refinedResume || result?.tailoredResume || '';
   const hasAny =
     bullets.length || keywords.length || questions.length || tailoredResume || result?.overall_match_score;
   if (!hasAny && !streaming) return null;
@@ -389,6 +394,10 @@ const ResultsPanel = ({ result, status }) => {
 
         {tailoredResume && (
           <TailoredResumeCard key="tailored-resume" markdown={tailoredResume} />
+        )}
+
+        {tailoredResume && refine?.active && (
+          <ChatRefine key="chat-refine" refine={refine} />
         )}
 
         {streaming && !hasAny && (

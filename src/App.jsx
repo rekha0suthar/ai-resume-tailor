@@ -9,15 +9,29 @@ import ResultsPanel from './components/ResultsPanel.jsx';
 import HowItWorks from './components/HowItWorks.jsx';
 import Footer from './components/Footer.jsx';
 import { useTailor } from './hooks/useTailor.js';
+import { useRefine } from './hooks/useRefine.js';
 
 const App = () => {
   const { status, result, error, tokens, submit, reset } = useTailor();
+  const refine = useRefine();
+  const { start: startRefine, reset: resetRefine } = refine;
 
   useEffect(() => {
     if (status === 'error' && error) toast.error(error);
     if (status === 'done')
       toast.success('Done. Edit any rewrite inline, then copy.');
   }, [status, error]);
+
+  // A finished tailor seeds a fresh chat-refinement session on its resume;
+  // starting over (reset or a new tailor run) clears the session so the
+  // live tailor stream shows through again.
+  useEffect(() => {
+    if (status === 'done' && result?.tailoredResume) {
+      startRefine(result.tailoredResume);
+    } else if (status === 'idle' || status === 'streaming') {
+      resetRefine();
+    }
+  }, [status, result?.tailoredResume, startRefine, resetRefine]);
 
   return (
     <div className="min-h-full">
@@ -61,7 +75,7 @@ const App = () => {
           )}
         </AnimatePresence>
 
-        <ResultsPanel result={result} status={status} />
+        <ResultsPanel result={result} status={status} refine={refine} />
       </main>
 
       <div className="mx-auto w-full max-w-5xl px-4 sm:px-6">

@@ -37,10 +37,85 @@ const validResponse = {
   tailoredResume: completeResume,
 };
 
+const originalBreakdown = {
+  required_skills: 15,
+  relevant_experience: 15,
+  keyword_alignment: 10,
+  evidence_metrics: 5,
+}; // sums to 45
+
+const tailoredBreakdown = {
+  required_skills: 25,
+  relevant_experience: 25,
+  keyword_alignment: 18,
+  evidence_metrics: 10,
+}; // sums to 78
+
 describe('partialValidate', () => {
-  it('passes through a complete valid object', () => {
+  it('passes through a complete valid object (breakdowns default to null)', () => {
     const out = partialValidate(validResponse);
-    expect(out).toEqual(validResponse);
+    expect(out).toEqual({
+      ...validResponse,
+      original_breakdown: null,
+      tailored_breakdown: null,
+    });
+  });
+
+  it('keeps valid breakdowns whose sums match the totals', () => {
+    const out = partialValidate({
+      ...validResponse,
+      original_breakdown: originalBreakdown,
+      tailored_breakdown: tailoredBreakdown,
+    });
+    expect(out.original_breakdown).toEqual(originalBreakdown);
+    expect(out.tailored_breakdown).toEqual(tailoredBreakdown);
+    expect(out.original_match_score).toBe(45);
+    expect(out.tailored_match_score).toBe(78);
+  });
+
+  it('prefers the breakdown SUM over a mismatched claimed total', () => {
+    const out = partialValidate({
+      ...validResponse,
+      original_match_score: 60, // vibed — disagrees with the components
+      original_breakdown: originalBreakdown, // sums to 45
+    });
+    expect(out.original_match_score).toBe(45);
+  });
+
+  it('clamps breakdown components to their caps before summing', () => {
+    const out = partialValidate({
+      ...validResponse,
+      tailored_breakdown: {
+        required_skills: 55, // → 40
+        relevant_experience: 30,
+        keyword_alignment: 20,
+        evidence_metrics: 12, // → 10
+      },
+    });
+    expect(out.tailored_breakdown).toEqual({
+      required_skills: 40,
+      relevant_experience: 30,
+      keyword_alignment: 20,
+      evidence_metrics: 10,
+    });
+    expect(out.tailored_match_score).toBe(100);
+  });
+
+  it('degrades a partial (mid-stream) breakdown to null, keeping the total', () => {
+    const out = partialValidate({
+      ...validResponse,
+      tailored_breakdown: { required_skills: 25, relevant_experience: 20 },
+    });
+    expect(out.tailored_breakdown).toBeNull();
+    expect(out.tailored_match_score).toBe(78);
+  });
+
+  it('degrades a garbage breakdown to null without breaking the score', () => {
+    for (const bad of ['high', 42, [1, 2, 3], { required_skills: 'great' }]) {
+      const out = partialValidate({ ...validResponse, original_breakdown: bad });
+      expect(out.original_breakdown).toBeNull();
+      expect(out.original_match_score).toBe(45);
+    }
   });
 
   it('fills defaults for a truncated object missing fields', () => {
@@ -148,7 +223,9 @@ describe('partialValidate', () => {
   it('returns all defaults for an empty object', () => {
     expect(partialValidate({})).toEqual({
       original_match_score: null,
+      original_breakdown: null,
       tailored_match_score: null,
+      tailored_breakdown: null,
       tailored_bullets: [],
       missing_keywords: [],
       interview_questions: [],
@@ -171,8 +248,24 @@ describe('partialValidateRefine', () => {
     updatedResume: completeResume,
   };
 
-  it('passes through a complete valid object', () => {
-    expect(partialValidateRefine(full)).toEqual(full);
+  it('passes through a complete valid object (breakdown defaults to null)', () => {
+    expect(partialValidateRefine(full)).toEqual({ ...full, updatedBreakdown: null });
+  });
+
+  it('keeps a valid updatedBreakdown and recomputes the score from its sum', () => {
+    const out = partialValidateRefine({
+      ...full,
+      updatedScore: 95, // vibed — disagrees with the components
+      updatedBreakdown: tailoredBreakdown, // sums to 78
+    });
+    expect(out.updatedBreakdown).toEqual(tailoredBreakdown);
+    expect(out.updatedScore).toBe(78);
+  });
+
+  it('degrades a garbage updatedBreakdown to null, keeping the claimed score', () => {
+    const out = partialValidateRefine({ ...full, updatedBreakdown: 'much better' });
+    expect(out.updatedBreakdown).toBeNull();
+    expect(out.updatedScore).toBe(81);
   });
 
   it('defaults updatedScore to null when absent (no JD sent)', () => {
@@ -211,7 +304,12 @@ describe('partialValidateRefine', () => {
 
   it('drops wrong-typed fields without crashing', () => {
     const out = partialValidateRefine({ note: 42, updatedResume: ['nope'] });
-    expect(out).toEqual({ note: '', updatedScore: null, updatedResume: '' });
+    expect(out).toEqual({
+      note: '',
+      updatedScore: null,
+      updatedBreakdown: null,
+      updatedResume: '',
+    });
   });
 
   it('salvages a valid resume when the sibling field is wrong-typed', () => {
@@ -224,6 +322,7 @@ describe('partialValidateRefine', () => {
     expect(partialValidateRefine({})).toEqual({
       note: '',
       updatedScore: null,
+      updatedBreakdown: null,
       updatedResume: '',
     });
   });

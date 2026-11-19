@@ -1,5 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { partialValidate } from './schema.js';
+import { partialValidate, TAILORED_RESUME_MIN_LENGTH } from './schema.js';
+
+const completeResume = [
+  '## Summary',
+  'Full-stack engineer with 4 years of experience shipping React and Node.js products.',
+  '',
+  '## Experience',
+  '### Software Engineer — Acme Corp (2021–present)',
+  '- Shipped stuff to 1M users',
+  '- Cut page load time by 40%',
+  '',
+  '## Education',
+  'B.Tech in Computer Science',
+].join('\n');
 
 const validResponse = {
   overall_match_score: 72,
@@ -16,6 +29,7 @@ const validResponse = {
       prep_tip: 'Use STAR',
     },
   ],
+  tailoredResume: completeResume,
 };
 
 describe('partialValidate', () => {
@@ -33,6 +47,36 @@ describe('partialValidate', () => {
     expect(out.tailored_bullets).toEqual([{ original: 'a', rewrite: 'b', why: '' }]);
     expect(out.missing_keywords).toEqual([]);
     expect(out.interview_questions).toEqual([]);
+    expect(out.tailoredResume).toBe('');
+  });
+
+  it('keeps a complete tailoredResume', () => {
+    expect(completeResume.length).toBeGreaterThanOrEqual(TAILORED_RESUME_MIN_LENGTH);
+    const out = partialValidate(validResponse);
+    expect(out.tailoredResume).toBe(completeResume);
+  });
+
+  it('defaults tailoredResume to empty string when absent', () => {
+    const { tailoredResume, ...withoutResume } = validResponse;
+    const out = partialValidate(withoutResume);
+    expect(out.tailoredResume).toBe('');
+    // The other four sections still come through untouched.
+    expect(out.tailored_bullets).toEqual(validResponse.tailored_bullets);
+    expect(out.interview_questions).toEqual(validResponse.interview_questions);
+  });
+
+  it('hides a truncated (still-streaming) tailoredResume', () => {
+    const out = partialValidate({
+      ...validResponse,
+      tailoredResume: '## Summ', // mid-stream fragment, below min length
+    });
+    expect(out.tailoredResume).toBe('');
+  });
+
+  it('drops a wrong-typed tailoredResume without crashing', () => {
+    const out = partialValidate({ ...validResponse, tailoredResume: 42 });
+    expect(out.tailoredResume).toBe('');
+    expect(out.overall_match_score).toBe(validResponse.overall_match_score);
   });
 
   it('drops wrong-typed entries instead of crashing', () => {
@@ -60,6 +104,7 @@ describe('partialValidate', () => {
       tailored_bullets: [],
       missing_keywords: [],
       interview_questions: [],
+      tailoredResume: '',
     });
   });
 

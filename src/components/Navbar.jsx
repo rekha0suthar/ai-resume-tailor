@@ -15,7 +15,7 @@ const Navbar = () => (
         href="https://github.com/rekha0suthar/ai-resume-tailor"
         target="_blank"
         rel="noreferrer"
-        className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs font-medium text-slate-200 transition hover:border-accent/40 hover:bg-accent/10"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-surface-1 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition hover:border-accent/40 hover:bg-accent/10"
         aria-label="Source on GitHub"
       >
         <Github size={14} />

@@ -19,14 +19,14 @@ const ErrorCard = ({ error, errorCode, onRetry, onEditInputs }) => {
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mt-8 rounded-2xl border border-rose-400/25 bg-rose-500/[0.07] p-6 text-center sm:p-8"
+      className="mt-8 rounded-2xl border border-error/25 bg-error/10 p-6 text-center sm:p-8"
       role="alert"
     >
-      <span className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-rose-500/15 ring-1 ring-rose-400/30">
+      <span className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-error/15 ring-1 ring-error/30">
         {rateLimited ? (
-          <Hourglass size={17} className="text-rose-200" aria-hidden="true" />
+          <Hourglass size={17} className="text-error" aria-hidden="true" />
         ) : (
-          <TriangleAlert size={17} className="text-rose-200" aria-hidden="true" />
+          <TriangleAlert size={17} className="text-error" aria-hidden="true" />
         )}
       </span>
       <h2 className="mt-3 text-base font-semibold text-white">
@@ -42,7 +42,7 @@ const ErrorCard = ({ error, errorCode, onRetry, onEditInputs }) => {
           <button
             type="button"
             onClick={onRetry}
-            className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-accent-bright"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-accent-bright"
           >
             Try again
           </button>
@@ -50,7 +50,7 @@ const ErrorCard = ({ error, errorCode, onRetry, onEditInputs }) => {
         <button
           type="button"
           onClick={onEditInputs}
-          className="rounded-xl border border-white/15 bg-white/[0.05] px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-white/30 hover:text-white"
+          className="rounded-lg border border-white/15 bg-surface-3 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-white/30 hover:text-white"
         >
           Back to inputs
         </button>
@@ -116,7 +116,7 @@ const App = () => {
           position="bottom-right"
           toastOptions={{
             style: {
-              background: 'rgba(11,23,34,0.95)',
+              background: 'rgba(11,23,34,0.95)', // ink-900 @ 95%
               color: '#e2e8f0',
               border: '1px solid rgba(255,255,255,0.08)',
               backdropFilter: 'blur(12px)',
@@ -167,14 +167,14 @@ const App = () => {
                 <button
                   type="button"
                   onClick={() => setView('input')}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-accent/50 hover:text-white"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-surface-3 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-accent/50 hover:text-white"
                 >
                   <PencilLine size={13} aria-hidden="true" /> Edit inputs
                 </button>
                 <button
                   type="button"
                   onClick={startOver}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition hover:bg-white/[0.06] hover:text-white"
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 transition hover:bg-surface-3 hover:text-white"
                 >
                   <RotateCcw size={13} aria-hidden="true" /> Start over
                 </button>

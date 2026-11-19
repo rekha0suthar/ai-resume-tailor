@@ -69,8 +69,8 @@ const PageBoundary = ({ template, onOverflowChange, children }) => {
           className="pointer-events-none absolute left-1/2 w-full max-w-[720px] -translate-x-1/2 print:hidden"
           style={{ top: boundary }}
         >
-          <div className="border-t border-dashed border-rose-400/70" />
-          <span className="absolute -top-2.5 right-1 rounded bg-ink-900/80 px-1.5 py-0.5 text-[10px] font-medium text-rose-200/90 backdrop-blur-sm">
+          <div className="border-t border-dashed border-error/70" />
+          <span className="absolute -top-2.5 right-1 rounded bg-ink-900/80 px-1.5 py-0.5 text-[10px] font-medium text-error/90 backdrop-blur-sm">
             Page 1 ends here (approx.)
           </span>
         </div>

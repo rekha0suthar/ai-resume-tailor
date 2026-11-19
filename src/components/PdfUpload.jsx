@@ -80,14 +80,14 @@ const PdfUpload = ({ onExtract, disabled }) => {
 
   if (fileName) {
     return (
-      <div className="flex items-center justify-between rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-2.5 text-sm">
-        <span className="flex items-center gap-2 text-emerald-200">
+      <div className="flex items-center justify-between rounded-lg border border-success/40 bg-success/10 px-4 py-2.5 text-sm">
+        <span className="flex items-center gap-2 text-success">
           <FileText size={16} />
           <span className="truncate">{fileName}</span>
         </span>
         <button
           onClick={clear}
-          className="text-emerald-200/80 hover:text-white"
+          className="text-success/80 hover:text-white"
           aria-label="Remove file"
           type="button"
         >
@@ -101,7 +101,7 @@ const PdfUpload = ({ onExtract, disabled }) => {
     <label
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
-      className={`flex items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-2.5 text-sm transition cursor-pointer ${
+      className={`flex items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-surface-1 px-4 py-2.5 text-sm transition cursor-pointer ${
         disabled || loading
           ? 'opacity-50 cursor-not-allowed'
           : 'hover:border-accent/60 hover:bg-accent/5'

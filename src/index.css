@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Raw hexes in this file mirror the Tailwind tokens (plain CSS can't read
+   tailwind.config.js): accent #4a9eff, accent-bright #7ab8ff, ink-900 #0b1722. */
 :root {
   color-scheme: dark;
   --grad-from: #0b1722;

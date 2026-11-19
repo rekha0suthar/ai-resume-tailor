@@ -36,20 +36,20 @@ const Collapse = ({ icon: Icon, title, subtitle, count, defaultOpen = false, chi
   return (
     <motion.section
       {...fadeIn}
-      className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.045] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+      className="overflow-hidden rounded-2xl border border-white/10 bg-surface-2 shadow-panel"
     >
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition hover:bg-white/[0.03] sm:px-6"
+        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition hover:bg-surface-1 sm:px-6"
       >
         <span className="flex min-w-0 items-center gap-3">
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent/10 ring-1 ring-accent/25">
             <Icon size={14} className="text-accent-bright" aria-hidden="true" />
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold text-white sm:text-base">
+            <span className="block truncate text-sm font-semibold text-white">
               {title}
             </span>
             {subtitle && (
@@ -59,7 +59,7 @@ const Collapse = ({ icon: Icon, title, subtitle, count, defaultOpen = false, chi
         </span>
         <span className="flex shrink-0 items-center gap-2.5">
           {typeof count === 'number' && count > 0 && (
-            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-300">
+            <span className="rounded-full border border-white/10 bg-surface-2 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-300">
               {count}
             </span>
           )}
@@ -90,7 +90,7 @@ const Collapse = ({ icon: Icon, title, subtitle, count, defaultOpen = false, chi
 const SkeletonRows = ({ rows = 3 }) => (
   <div className="grid gap-3" aria-hidden="true">
     {Array.from({ length: rows }, (_, i) => (
-      <div key={i} className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+      <div key={i} className="grid gap-2 rounded-xl border border-white/10 bg-surface-1 p-4">
         <div className="h-3 w-1/3 animate-pulse rounded bg-white/10" />
         <div className="h-3 w-3/4 animate-pulse rounded bg-white/10" />
       </div>
@@ -128,7 +128,7 @@ const BulletCard = ({ bullet, index }) => {
       layout
       {...fadeIn}
       transition={{ duration: 0.3, delay: index * 0.04 }}
-      className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
+      className="rounded-xl border border-white/10 bg-surface-1 p-4"
     >
       {bullet.original && (
         <>
@@ -179,7 +179,7 @@ const BulletCard = ({ bullet, index }) => {
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
           rows={3}
-          className="mt-1 w-full resize-y rounded-lg border border-white/15 bg-white/[0.06] px-3 py-2 text-sm text-white focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/30"
+          className="mt-1 w-full resize-y rounded-lg border border-white/15 bg-surface-3 px-3 py-2 text-sm text-white focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/30"
         />
       ) : (
         <p className="mt-1 text-sm text-white">{editValue}</p>
@@ -236,7 +236,7 @@ const TemplateTabs = ({ value, onChange }) => (
           className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
             active
               ? 'border-accent/70 bg-accent/15 text-white'
-              : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/25 hover:text-white'
+              : 'border-white/10 bg-surface-1 text-slate-300 hover:border-white/25 hover:text-white'
           }`}
         >
           {/* Tiny visual hint: the initial letter, set in the template's own type. */}
@@ -371,7 +371,7 @@ const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
           <button
             type="button"
             onClick={copy}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-400 transition hover:bg-white/[0.06] hover:text-white"
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-400 transition hover:bg-surface-3 hover:text-white"
           >
             {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
             {copied ? 'Copied' : 'Copy markdown'}
@@ -379,7 +379,7 @@ const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
           <button
             type="button"
             onClick={downloadMd}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-400 transition hover:bg-white/[0.06] hover:text-white"
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-400 transition hover:bg-surface-3 hover:text-white"
           >
             <Download size={13} aria-hidden="true" /> .md
           </button>
@@ -401,7 +401,7 @@ const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
       )}
 
       {overflows && !busy && (
-        <p className="mb-2 text-center text-[11px] text-amber-200/90">
+        <p className="mb-2 text-center text-[11px] text-warn/90">
           Runs past one page — try &ldquo;Fit to one page&rdquo; or the Compact
           template.
         </p>
@@ -422,7 +422,7 @@ const ResumeHero = ({ markdown, busy, onSectionEdit }) => {
 
 /** Chat-column placeholder while the first tailor pass is still streaming. */
 const RefinePlaceholder = () => (
-  <div className="flex h-full min-h-[180px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-6 text-center">
+  <div className="flex h-full min-h-[180px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/10 bg-surface-1 p-6 text-center">
     <MessagesSquare size={18} className="text-slate-500" aria-hidden="true" />
     <p className="text-sm font-medium text-slate-400">Refinement chat</p>
     <p className="max-w-[26ch] text-xs text-slate-500">
@@ -436,8 +436,8 @@ const RefinePlaceholder = () => (
 /* ------------------------------------------------------------------ */
 
 const importanceClasses = {
-  'must-have': 'bg-red-500/15 text-red-200 border-red-400/40',
-  'nice-to-have': 'bg-yellow-500/15 text-yellow-200 border-yellow-400/40',
+  'must-have': 'bg-error/15 text-error border-error/40',
+  'nice-to-have': 'bg-warn/15 text-warn border-warn/40',
 };
 
 const ResultsPanel = ({ result, status, refine }) => {
@@ -527,11 +527,11 @@ const ResultsPanel = ({ result, status, refine }) => {
                   layout
                   {...fadeIn}
                   transition={{ duration: 0.25, delay: i * 0.04 }}
-                  className="flex flex-col gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:flex-row sm:items-start sm:gap-4"
+                  className="flex flex-col gap-1 rounded-xl border border-white/10 bg-surface-1 p-4 sm:flex-row sm:items-start sm:gap-4"
                 >
                   <span
                     className={`shrink-0 self-start rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                      importanceClasses[k.importance] || 'border-white/20 bg-white/5 text-slate-300'
+                      importanceClasses[k.importance] || 'border-white/20 bg-surface-2 text-slate-300'
                     }`}
                   >
                     {k.importance || 'optional'}
@@ -585,7 +585,7 @@ const ResultsPanel = ({ result, status, refine }) => {
                   layout
                   {...fadeIn}
                   transition={{ duration: 0.25, delay: i * 0.04 }}
-                  className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
+                  className="rounded-xl border border-white/10 bg-surface-1 p-4"
                 >
                   <p className="text-sm font-semibold text-white">
                     {i + 1}. {q.question}

@@ -13,10 +13,10 @@ const scoreColor = (s) =>
   s == null
     ? 'text-slate-500'
     : s >= 75
-      ? 'text-emerald-300'
+      ? 'text-success'
       : s >= 50
-        ? 'text-amber-300'
-        : 'text-rose-300';
+        ? 'text-warn'
+        : 'text-error';
 
 const ScoreNumber = ({ label, value, dim, pending }) => (
   <div className={`text-center ${dim ? 'opacity-70' : ''}`}>
@@ -52,10 +52,10 @@ const DeltaBadge = ({ delta }) => {
   const up = delta > 0;
   const down = delta < 0;
   const cls = up
-    ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200'
+    ? 'border-success/40 bg-success/15 text-success'
     : down
-      ? 'border-rose-400/40 bg-rose-500/15 text-rose-200'
-      : 'border-white/15 bg-white/[0.06] text-slate-300';
+      ? 'border-error/40 bg-error/15 text-error'
+      : 'border-white/15 bg-surface-3 text-slate-300';
   const glyph = up ? '▲' : down ? '▼' : '—';
   const text = up ? `+${delta}` : down ? `${delta}` : '0';
   return (
@@ -95,7 +95,7 @@ const ScoreStrip = ({ original, tailored, trail = [], streaming }) => {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="rounded-2xl border border-white/10 bg-white/[0.045] px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm sm:px-6"
+      className="rounded-2xl border border-white/10 bg-surface-2 px-5 py-4 shadow-panel backdrop-blur-sm sm:px-6"
       aria-label="Match score before and after tailoring"
     >
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">

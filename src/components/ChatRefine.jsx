@@ -24,7 +24,7 @@ const Bubble = ({ role, children, streaming }) => {
         className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-sm ${
           isUser
             ? 'rounded-br-sm bg-accent/20 text-white'
-            : 'rounded-bl-sm border border-white/10 bg-white/[0.06] text-slate-200'
+            : 'rounded-bl-sm border border-white/10 bg-surface-3 text-slate-200'
         }`}
       >
         {children}
@@ -89,7 +89,7 @@ const ChatRefine = ({ refine, sections = [], prefill }) => {
   return (
     <motion.section
       {...fadeIn}
-      className="flex flex-col rounded-2xl border border-white/10 bg-white/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-5"
+      className="flex flex-col rounded-2xl border border-white/10 bg-surface-2 p-5 shadow-panel"
       aria-label="Refine the tailored resume"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -102,7 +102,7 @@ const ChatRefine = ({ refine, sections = [], prefill }) => {
             type="button"
             onClick={revert}
             disabled={streaming}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-slate-300 transition hover:border-accent/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-surface-3 px-2.5 py-1 text-[11px] font-semibold text-slate-300 transition hover:border-accent/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Undo2 size={12} aria-hidden="true" /> Undo last change
           </button>
@@ -146,7 +146,7 @@ const ChatRefine = ({ refine, sections = [], prefill }) => {
                 type="button"
                 onClick={() => prefillSection(heading)}
                 disabled={streaming}
-                className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-slate-300 transition hover:border-accent/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-surface-3 px-2.5 py-1 text-[11px] font-semibold text-slate-300 transition hover:border-accent/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Pencil size={10} aria-hidden="true" />
                 {heading}
@@ -198,7 +198,7 @@ const ChatRefine = ({ refine, sections = [], prefill }) => {
           placeholder='e.g. "Lead with the Python experience"'
           disabled={streaming}
           aria-label="Refinement instruction"
-          className="min-w-0 flex-1 rounded-lg border border-white/15 bg-white/[0.06] px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
+          className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface-3 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-50"
         />
         <button
           type="submit"
@@ -211,7 +211,7 @@ const ChatRefine = ({ refine, sections = [], prefill }) => {
       </form>
 
       {status === 'error' && error && (
-        <p className="mt-2 text-xs text-rose-300" role="alert">
+        <p className="mt-2 text-xs text-error" role="alert">
           {error}
         </p>
       )}

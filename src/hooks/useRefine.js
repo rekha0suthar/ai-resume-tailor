@@ -16,9 +16,14 @@
  *   liveResume:    the partial updatedResume while streaming ('' otherwise)
  *                  — render `liveResume || currentResume` for a live preview
  *   canRevert:     whether the undo stack has a previous version
- *   start(base):   seed a fresh session from a newly tailored resume
+ *   scoreTrail:    committed updatedScores, oldest→newest (for "78 → 81")
+ *   currentScore:  latest committed updatedScore, or null before any
+ *   start(base, jobDescription): seed a fresh session from a newly tailored
+ *                  resume; the JD rides along on every turn so the server
+ *                  can re-score against the SAME job description
  *   send(instruction): run one refinement turn
- *   revert():      restore the previous version (undo stack, cap 10)
+ *   revert():      restore the previous version (undo stack, cap 10) —
+ *                  score trail is restored alongside the resume
  *   reset():       clear the whole session
  *
  * Streaming behaviour mirrors useTailor: accumulate SSE chunks, strip any
@@ -43,12 +48,17 @@ export function useRefine() {
   const [pendingNote, setPendingNote] = useState('');
   const [currentResume, setCurrentResume] = useState('');
   const [liveResume, setLiveResume] = useState('');
+  // Undo stack entries are { resume, trail } — the score trail is versioned
+  // WITH the resume so revert rolls the score strip back in lockstep.
   const [versions, setVersions] = useState([]);
+  const [scoreTrail, setScoreTrail] = useState([]);
   const abortRef = useRef(null);
+  const jdRef = useRef('');
 
-  const start = useCallback((baseResume) => {
+  const start = useCallback((baseResume, jobDescription = '') => {
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = null;
+    jdRef.current = jobDescription || '';
     setStatus('idle');
     setError(null);
     setMessages([]);
@@ -56,6 +66,7 @@ export function useRefine() {
     setCurrentResume(baseResume || '');
     setLiveResume('');
     setVersions([]);
+    setScoreTrail([]);
   }, []);
 
   const reset = useCallback(() => start(''), [start]);
@@ -64,7 +75,8 @@ export function useRefine() {
     if (!versions.length || status === 'streaming') return;
     const previous = versions[versions.length - 1];
     setVersions(versions.slice(0, -1));
-    setCurrentResume(previous);
+    setCurrentResume(previous.resume);
+    setScoreTrail(previous.trail);
     setLiveResume('');
   }, [versions, status]);
 
@@ -77,6 +89,7 @@ export function useRefine() {
       // and the pre-turn resume; the new user turn goes in `instruction`.
       const history = clampHistory(messages);
       const prevResume = currentResume;
+      const prevTrail = scoreTrail;
 
       if (abortRef.current) abortRef.current.abort();
       const ctrl = new AbortController();
@@ -93,7 +106,12 @@ export function useRefine() {
         res = await fetch('/api/refine', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ resumeMarkdown: prevResume, instruction: text, history }),
+          body: JSON.stringify({
+            resumeMarkdown: prevResume,
+            instruction: text,
+            jobDescription: jdRef.current,
+            history,
+          }),
           signal: ctrl.signal,
         });
       } catch (err) {
@@ -142,10 +160,16 @@ export function useRefine() {
           }
         }
         if (final?.updatedResume) {
-          // Commit: previous version onto the undo stack (cap 10), new
-          // version becomes current.
-          setVersions((v) => [...v.slice(-(VERSION_CAP - 1)), prevResume]);
+          // Commit: previous version (resume + score trail) onto the undo
+          // stack (cap 10), new version becomes current.
+          setVersions((v) => [
+            ...v.slice(-(VERSION_CAP - 1)),
+            { resume: prevResume, trail: prevTrail },
+          ]);
           setCurrentResume(final.updatedResume);
+          if (typeof final.updatedScore === 'number') {
+            setScoreTrail([...prevTrail, final.updatedScore]);
+          }
         }
         const note =
           final?.note || latestNote || (final?.updatedResume ? 'Updated the resume.' : '');
@@ -217,7 +241,7 @@ export function useRefine() {
         setError(err?.message || 'Stream interrupted.');
       }
     },
-    [messages, currentResume, status]
+    [messages, currentResume, scoreTrail, status]
   );
 
   return {
@@ -229,6 +253,8 @@ export function useRefine() {
     currentResume,
     liveResume,
     canRevert: versions.length > 0,
+    scoreTrail,
+    currentScore: scoreTrail.length ? scoreTrail[scoreTrail.length - 1] : null,
     start,
     send,
     revert,

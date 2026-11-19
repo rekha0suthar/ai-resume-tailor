@@ -5,6 +5,7 @@
  *   status:  'idle' | 'streaming' | 'done' | 'error'
  *   result:  the live partial result (TailorResponseSchema-shaped)
  *   error:   string | null
+ *   errorCode: HTTP status behind the error (429 → rate-limit UI), or null
  *   tokens:  approximate token count received so far
  *   submit({ resumeText, jobDescription }): kick off a new tailor
  *   reset():                                  clear state
@@ -21,7 +22,8 @@ import { parseSSE } from '../lib/sse.js';
 import { stripJsonFences } from '../lib/fences.js';
 
 const empty = {
-  overall_match_score: 0,
+  original_match_score: null,
+  tailored_match_score: null,
   tailored_bullets: [],
   missing_keywords: [],
   interview_questions: [],
@@ -32,6 +34,7 @@ export function useTailor() {
   const [status, setStatus] = useState('idle');
   const [result, setResult] = useState(empty);
   const [error, setError] = useState(null);
+  const [errorCode, setErrorCode] = useState(null);
   const [tokens, setTokens] = useState(0);
   const abortRef = useRef(null);
 
@@ -41,6 +44,7 @@ export function useTailor() {
     setStatus('idle');
     setResult(empty);
     setError(null);
+    setErrorCode(null);
     setTokens(0);
   }, []);
 
@@ -52,6 +56,7 @@ export function useTailor() {
     setStatus('streaming');
     setResult(empty);
     setError(null);
+    setErrorCode(null);
     setTokens(0);
 
     let res;
@@ -84,6 +89,7 @@ export function useTailor() {
       }
       setStatus('error');
       setError(msg);
+      setErrorCode(res.status);
       return;
     }
 
@@ -150,5 +156,5 @@ export function useTailor() {
     }
   }, []);
 
-  return { status, result, error, tokens, submit, reset };
+  return { status, result, error, errorCode, tokens, submit, reset };
 }

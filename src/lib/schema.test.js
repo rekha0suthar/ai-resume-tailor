@@ -19,7 +19,8 @@ const completeResume = [
 ].join('\n');
 
 const validResponse = {
-  overall_match_score: 72,
+  original_match_score: 45,
+  tailored_match_score: 78,
   tailored_bullets: [
     { original: 'Did stuff', rewrite: 'Shipped stuff to 1M users', why: 'metrics' },
   ],
@@ -44,14 +45,56 @@ describe('partialValidate', () => {
 
   it('fills defaults for a truncated object missing fields', () => {
     const out = partialValidate({
-      overall_match_score: 40,
+      original_match_score: 40,
       tailored_bullets: [{ original: 'a', rewrite: 'b' }],
     });
-    expect(out.overall_match_score).toBe(40);
+    expect(out.original_match_score).toBe(40);
+    expect(out.tailored_match_score).toBeNull();
     expect(out.tailored_bullets).toEqual([{ original: 'a', rewrite: 'b', why: '' }]);
     expect(out.missing_keywords).toEqual([]);
     expect(out.interview_questions).toEqual([]);
     expect(out.tailoredResume).toBe('');
+  });
+
+  it('accepts legacy overall_match_score as an alias for the original score', () => {
+    const out = partialValidate({ overall_match_score: 62 });
+    expect(out.original_match_score).toBe(62);
+    expect(out.tailored_match_score).toBeNull();
+  });
+
+  it('prefers original_match_score over the legacy alias when both exist', () => {
+    const out = partialValidate({ original_match_score: 50, overall_match_score: 90 });
+    expect(out.original_match_score).toBe(50);
+  });
+
+  it('coerces word-number scores instead of blanking the card', () => {
+    const out = partialValidate({
+      ...validResponse,
+      original_match_score: 'thirty',
+      tailored_match_score: 'seventy-five',
+    });
+    expect(out.original_match_score).toBe(30);
+    expect(out.tailored_match_score).toBe(75);
+  });
+
+  it('coerces numeric-string scores', () => {
+    const out = partialValidate({ ...validResponse, original_match_score: '42' });
+    expect(out.original_match_score).toBe(42);
+  });
+
+  it('degrades an unreadable score to null, not 0, keeping siblings', () => {
+    const out = partialValidate({
+      ...validResponse,
+      tailored_match_score: 'pretty good',
+    });
+    expect(out.tailored_match_score).toBeNull();
+    expect(out.original_match_score).toBe(45);
+    expect(out.tailored_bullets).toEqual(validResponse.tailored_bullets);
+  });
+
+  it('clamps out-of-range scores into 0–100', () => {
+    const out = partialValidate({ ...validResponse, tailored_match_score: 140 });
+    expect(out.tailored_match_score).toBe(100);
   });
 
   it('keeps a complete tailoredResume', () => {
@@ -80,12 +123,12 @@ describe('partialValidate', () => {
   it('drops a wrong-typed tailoredResume without crashing', () => {
     const out = partialValidate({ ...validResponse, tailoredResume: 42 });
     expect(out.tailoredResume).toBe('');
-    expect(out.overall_match_score).toBe(validResponse.overall_match_score);
+    expect(out.original_match_score).toBe(validResponse.original_match_score);
   });
 
   it('drops wrong-typed entries instead of crashing', () => {
     const out = partialValidate({
-      overall_match_score: 'ninety',
+      original_match_score: { nope: true },
       tailored_bullets: [
         { original: 'a', rewrite: 'b' },
         { original: 'c', rewrite: 123 }, // bad rewrite type → filtered out
@@ -94,7 +137,7 @@ describe('partialValidate', () => {
       missing_keywords: 'nope',
       interview_questions: [{ question: 'ok?' }, { nope: true }],
     });
-    expect(out.overall_match_score).toBe(0);
+    expect(out.original_match_score).toBeNull();
     expect(out.tailored_bullets).toHaveLength(1);
     expect(out.tailored_bullets[0].rewrite).toBe('b');
     expect(out.missing_keywords).toEqual([]);
@@ -104,7 +147,8 @@ describe('partialValidate', () => {
 
   it('returns all defaults for an empty object', () => {
     expect(partialValidate({})).toEqual({
-      overall_match_score: 0,
+      original_match_score: null,
+      tailored_match_score: null,
       tailored_bullets: [],
       missing_keywords: [],
       interview_questions: [],
@@ -121,10 +165,31 @@ describe('partialValidate', () => {
 });
 
 describe('partialValidateRefine', () => {
-  const full = { note: 'Shortened the summary.', updatedResume: completeResume };
+  const full = {
+    note: 'Shortened the summary.',
+    updatedScore: 81,
+    updatedResume: completeResume,
+  };
 
   it('passes through a complete valid object', () => {
     expect(partialValidateRefine(full)).toEqual(full);
+  });
+
+  it('defaults updatedScore to null when absent (no JD sent)', () => {
+    const out = partialValidateRefine({ note: 'Done.', updatedResume: completeResume });
+    expect(out.updatedScore).toBeNull();
+    expect(out.updatedResume).toBe(completeResume);
+  });
+
+  it('coerces a word-number updatedScore', () => {
+    const out = partialValidateRefine({ ...full, updatedScore: 'eighty-one' });
+    expect(out.updatedScore).toBe(81);
+  });
+
+  it('degrades an unreadable updatedScore to null without losing the resume', () => {
+    const out = partialValidateRefine({ ...full, updatedScore: [81] });
+    expect(out.updatedScore).toBeNull();
+    expect(out.updatedResume).toBe(completeResume);
   });
 
   it('keeps a partial (still-streaming) note with no resume yet', () => {
@@ -146,7 +211,7 @@ describe('partialValidateRefine', () => {
 
   it('drops wrong-typed fields without crashing', () => {
     const out = partialValidateRefine({ note: 42, updatedResume: ['nope'] });
-    expect(out).toEqual({ note: '', updatedResume: '' });
+    expect(out).toEqual({ note: '', updatedScore: null, updatedResume: '' });
   });
 
   it('salvages a valid resume when the sibling field is wrong-typed', () => {
@@ -156,7 +221,11 @@ describe('partialValidateRefine', () => {
   });
 
   it('returns all defaults for an empty object', () => {
-    expect(partialValidateRefine({})).toEqual({ note: '', updatedResume: '' });
+    expect(partialValidateRefine({})).toEqual({
+      note: '',
+      updatedScore: null,
+      updatedResume: '',
+    });
   });
 
   it('returns null for garbage input', () => {

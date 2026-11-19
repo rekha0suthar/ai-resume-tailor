@@ -1,7 +1,10 @@
 /**
- * Curated example resume + JD for the "Try sample" button.
- * Picked to produce interesting tailoring suggestions (mid-match,
- * not perfect alignment, so the AI has real work to do).
+ * Curated example resume + JD for the "See a demo" button.
+ * Deliberately a candidate with genuinely relevant experience that the
+ * resume UNDER-SELLS — buried LLM-API and streaming work, missing JD
+ * vocabulary, metrics in the wrong places — so honest tailoring has real
+ * credit to earn (visible score movement) while the keyword-gaps panel
+ * still surfaces the true gaps (RAG, FastAPI, vector DBs, evals).
  */
 export const SAMPLE_RESUME = `Riya Sharma — Full-Stack Developer
 
@@ -11,13 +14,14 @@ Skills: JavaScript, TypeScript, React, Redux, Node.js, Express, MongoDB, Tailwin
 
 Experience — Frontend Engineer, Brightcart (Jan 2024 – present):
 • Built and shipped a product-listing page for 50k SKUs with infinite scroll and faceted filters in React.
+• Added a live order-status widget that pushes updates to the browser using server-sent events, rendering new data as it arrives.
 • Migrated the checkout flow from class components to hooks; reduced bundle size 18% and Lighthouse perf score rose from 64 to 82.
 • Owned the design-system rollout: introduced design tokens and a shared Button/Card library used by 7 product squads.
 • Wrote Jest + React Testing Library coverage for the cart and checkout flows; raised line coverage from 12% to 71%.
 
 Projects:
+• Recipe helper chatbot (side project) — a React app that calls the OpenAI API with reusable prompt templates and checks the JSON replies against a schema before rendering; handles malformed responses gracefully. github.com/example/recipe-chat.
 • Personal-finance dashboard — React + Node + MongoDB. Charts (Recharts), monthly budget tracking, REST API. github.com/example/finance.
-• Movie-recommendation web app — Node + Express + MongoDB. K-nearest-neighbour rec engine on top of public TMDB ratings. Deployed on Render.
 
 Education: B.E. Computer Science, BMS College of Engineering (2018–2022).`;
 

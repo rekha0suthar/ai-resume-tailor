@@ -150,6 +150,12 @@ body::before {
     -webkit-print-color-adjust: exact;
   }
 
+  /* Links keep their on-sheet ink + underline in the PDF (browsers also
+     preserve the clickable hyperlink itself in Save-as-PDF). */
+  #resume-print-root .resume-sheet a {
+    text-decoration-thickness: 1px;
+  }
+
   /* Sensible page breaks: never split a role block or the name header;
      never leave a section heading orphaned at a page bottom. */
   .resume-entry {

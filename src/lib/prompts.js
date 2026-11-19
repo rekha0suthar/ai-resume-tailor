@@ -69,6 +69,8 @@ Given a candidate's resume and a target job description, you produce six things:
      original resume.
    - NEVER invent employers, job titles, dates, degrees, or metrics that are
      not in the original resume.
+   - Preserve every URL/link from the original resume verbatim — never drop
+     contact, portfolio, GitHub, or project links.
    - Preserve the original resume's section structure.
    - Format as clean markdown: "## " section headings ("### " for sub-headings
      like individual roles), "- " bullets, plain paragraphs elsewhere.
@@ -120,6 +122,8 @@ Rules:
 - NEVER invent employers, job titles, dates, degrees, certifications, or
   metrics that are not already present in the resume — and never add
   technologies, features, or responsibilities the resume doesn't mention.
+- Preserve every URL/link from the original resume verbatim — never drop
+  contact, portfolio, GitHub, or project links.
 - Keep the markdown conventions: "## " section headings, "### " sub-headings
   (e.g. individual roles), "- " bullets, plain paragraphs elsewhere.
 - Obey length instructions faithfully (shorter / longer / one-page): cutting

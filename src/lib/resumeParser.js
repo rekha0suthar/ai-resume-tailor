@@ -13,7 +13,7 @@
  *   - "### " sub-headings for roles, with a trailing date range in
  *     parentheses or after " | " / " — "
  *   - "- " / "* " / "• " bullets
- *   - **bold** inline spans
+ *   - **bold** inline spans, [text](url) links, bare https://…/www.… URLs
  *   - plain paragraphs everywhere else
  *
  * Output shape:
@@ -41,30 +41,99 @@ const CONTACTISH_RE =
 const SECTION_WORDS_RE =
   /^(?:professional\s+|work\s+|technical\s+|core\s+|key\s+)?(?:summary|skills?|experience|employment|education|projects?|certifications?|contact|objective|achievements?|awards?|publications?|interests?|languages?|profile|about)\b/i;
 
-/** Flatten [text](url) links — on a paper resume the text is what matters. */
-const flattenLinks = (text) =>
-  String(text).replace(/\[([^\]]+)\]\(([^)]*)\)/g, '$1');
+/** Matches a markdown [text](url) link. */
+const MD_LINK_RE = /\[([^\]]*)\]\(([^)]*)\)/g;
+/** Matches a bare URL in running text (https://… or www.…). */
+const BARE_URL_RE = /(?:https?:\/\/|www\.)[^\s<>]+/gi;
+/** Trailing sentence punctuation that isn't part of the URL. */
+const TRAIL_PUNCT_RE = /[.,;:!?'")\]]+$/;
+/** A segment that is exactly one **bold** span. */
+const BOLD_WRAP_RE = /^\*\*([^*]+)\*\*$/;
 
-/**
- * Split inline markdown into segments: [{ text, bold }].
- * **bold** is the only inline markup the resume dialect uses;
- * [text](url) links are flattened to their text.
- */
-export function splitBold(text) {
-  if (!text) return [];
-  return flattenLinks(text)
+/** Split link-free text into [{ text, bold }] segments. */
+function splitBoldSegments(text) {
+  return text
     .split(/(\*\*[^*]+\*\*)/g)
     .filter((part) => part !== '')
-    .map((part) =>
-      part.startsWith('**') && part.endsWith('**') && part.length > 4
-        ? { text: part.slice(2, -2), bold: true }
-        : { text: part, bold: false }
-    );
+    .map((part) => {
+      const m = part.match(BOLD_WRAP_RE);
+      return m ? { text: m[1], bold: true } : { text: part, bold: false };
+    });
 }
 
-/** Strip **bold** markers, leaving plain text (used for name / title fallbacks). */
+/** Turn bare URLs inside already-split segments into link segments. */
+function linkifyBare(segments) {
+  const out = [];
+  for (const seg of segments) {
+    let last = 0;
+    let found = false;
+    BARE_URL_RE.lastIndex = 0;
+    let m;
+    while ((m = BARE_URL_RE.exec(seg.text))) {
+      const url = m[0].replace(TRAIL_PUNCT_RE, '');
+      if (!url) continue;
+      found = true;
+      if (m.index > last) out.push({ text: seg.text.slice(last, m.index), bold: seg.bold });
+      out.push({
+        text: url,
+        bold: seg.bold,
+        url: /^www\./i.test(url) ? `https://${url}` : url,
+      });
+      last = m.index + url.length;
+      BARE_URL_RE.lastIndex = last;
+    }
+    if (!found) out.push(seg);
+    else if (last < seg.text.length) out.push({ text: seg.text.slice(last), bold: seg.bold });
+  }
+  return out;
+}
+
+/**
+ * Split inline markdown into segments: [{ text, bold, url? }].
+ * The resume dialect uses **bold** spans and [text](url) links; links are
+ * PRESERVED as structured segments (the preview renders real <a href>, and
+ * browsers keep hyperlinks clickable in print-to-PDF). Bare URLs
+ * (https://… / www.…) in running text become link segments too.
+ */
+export function splitInline(text) {
+  if (!text) return [];
+  const s = String(text);
+  const out = [];
+  let last = 0;
+  MD_LINK_RE.lastIndex = 0;
+  let m;
+  while ((m = MD_LINK_RE.exec(s))) {
+    let start = m.index;
+    let end = start + m[0].length;
+    let label = m[1];
+    const url = m[2].trim();
+    // [**text**](url) and **[text](url)** are both bold links.
+    let bold = false;
+    const inner = label.match(BOLD_WRAP_RE);
+    if (inner) {
+      bold = true;
+      label = inner[1];
+    } else if (start >= 2 && s.slice(start - 2, start) === '**' && s.slice(end, end + 2) === '**') {
+      bold = true;
+      start -= 2;
+      end += 2;
+    }
+    if (start > last) out.push(...linkifyBare(splitBoldSegments(s.slice(last, start))));
+    if (label) out.push(url ? { text: label, bold, url } : { text: label, bold });
+    last = end;
+    MD_LINK_RE.lastIndex = end;
+  }
+  if (last < s.length) out.push(...linkifyBare(splitBoldSegments(s.slice(last))));
+  return out;
+}
+
+/**
+ * Strip **bold** markers and flatten links to their text, leaving plain
+ * text (used for name / section-heading fallbacks — never for content
+ * that reaches the sheet, so no link is lost in rendering).
+ */
 export function stripBold(text) {
-  return splitBold(text)
+  return splitInline(text)
     .map((seg) => seg.text)
     .join('');
 }
@@ -224,8 +293,9 @@ export function parseResume(markdown) {
     }
     if (doc.name && !sawContent && !doc.contact && CONTACTISH_RE.test(line)) {
       // Contact line directly under the name, before any section —
-      // some models label it ("**Contact:** …"); drop the label.
-      doc.contact = stripBold(line).replace(/^contact:?\s*/i, '').trim();
+      // some models label it ("**Contact:** …"); drop the label but KEEP
+      // the inline markdown (links render as real <a href> on the sheet).
+      doc.contact = line.replace(/^(?:\*\*\s*)?contact:?(?:\s*\*\*)?:?\s*/i, '').trim();
       continue;
     }
     target().push({ type: 'p', text: line });

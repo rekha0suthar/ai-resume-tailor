@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseResume, parseRoleHeading, splitBold, stripBold, sectionHeadings } from './resumeParser.js';
+import { parseResume, parseRoleHeading, splitInline, stripBold, sectionHeadings } from './resumeParser.js';
 
 const FULL = `# Riya Sharma
 riya.sharma@email.com | +91 98765 43210 | github.com/riya | linkedin.com/in/riya
@@ -132,7 +132,9 @@ describe('parseResume', () => {
       '## Riya Sharma — Full-Stack Developer\n\n**Contact:** riya@email.com | [github.com/riya](https://github.com/riya)\n\n### Summary\nEngineer.\n\n### Skills\n- React'
     );
     expect(doc.name).toBe('Riya Sharma — Full-Stack Developer');
-    expect(doc.contact).toBe('riya@email.com | github.com/riya');
+    // The "Contact:" label is dropped; the LINK itself is preserved so the
+    // sheet can render it as a real <a href>.
+    expect(doc.contact).toBe('riya@email.com | [github.com/riya](https://github.com/riya)');
     expect(doc.sections.map((s) => s.heading)).toEqual(['Summary', 'Skills']);
   });
 
@@ -188,9 +190,9 @@ describe('parseRoleHeading', () => {
   });
 });
 
-describe('splitBold / stripBold', () => {
+describe('splitInline / stripBold', () => {
   it('splits **bold** spans', () => {
-    expect(splitBold('shipped **two** apps')).toEqual([
+    expect(splitInline('shipped **two** apps')).toEqual([
       { text: 'shipped ', bold: false },
       { text: 'two', bold: true },
       { text: ' apps', bold: false },
@@ -198,13 +200,89 @@ describe('splitBold / stripBold', () => {
   });
 
   it('leaves plain text as one segment and handles empties', () => {
-    expect(splitBold('plain')).toEqual([{ text: 'plain', bold: false }]);
-    expect(splitBold('')).toEqual([]);
-    expect(splitBold(null)).toEqual([]);
+    expect(splitInline('plain')).toEqual([{ text: 'plain', bold: false }]);
+    expect(splitInline('')).toEqual([]);
+    expect(splitInline(null)).toEqual([]);
   });
 
-  it('stripBold flattens to plain text', () => {
+  it('preserves [text](url) links as structured segments', () => {
+    expect(splitInline('See [my portfolio](https://riya.dev) for more')).toEqual([
+      { text: 'See ', bold: false },
+      { text: 'my portfolio', bold: false, url: 'https://riya.dev' },
+      { text: ' for more', bold: false },
+    ]);
+  });
+
+  it('preserves links in a contact line (multiple links)', () => {
+    const segs = splitInline(
+      'riya@email.com | [github.com/riya](https://github.com/riya) | [LinkedIn](https://linkedin.com/in/riya)'
+    );
+    const links = segs.filter((s) => s.url);
+    expect(links).toEqual([
+      { text: 'github.com/riya', bold: false, url: 'https://github.com/riya' },
+      { text: 'LinkedIn', bold: false, url: 'https://linkedin.com/in/riya' },
+    ]);
+  });
+
+  it('preserves links inside bullets alongside bold', () => {
+    expect(
+      splitInline('Built **Finance app** — [source](https://github.com/r/finance) in React')
+    ).toEqual([
+      { text: 'Built ', bold: false },
+      { text: 'Finance app', bold: true },
+      { text: ' — ', bold: false },
+      { text: 'source', bold: false, url: 'https://github.com/r/finance' },
+      { text: ' in React', bold: false },
+    ]);
+  });
+
+  it('turns bare URLs into links and trims trailing punctuation', () => {
+    expect(splitInline('Deployed at https://finance.riya.dev.')).toEqual([
+      { text: 'Deployed at ', bold: false },
+      { text: 'https://finance.riya.dev', bold: false, url: 'https://finance.riya.dev' },
+      { text: '.', bold: false },
+    ]);
+  });
+
+  it('gives www. bare URLs an https:// href', () => {
+    expect(splitInline('www.riya.dev')).toEqual([
+      { text: 'www.riya.dev', bold: false, url: 'https://www.riya.dev' },
+    ]);
+  });
+
+  it('handles bold+link mixes in both nestings', () => {
+    expect(splitInline('[**GitHub**](https://github.com/riya)')).toEqual([
+      { text: 'GitHub', bold: true, url: 'https://github.com/riya' },
+    ]);
+    expect(splitInline('**[GitHub](https://github.com/riya)**')).toEqual([
+      { text: 'GitHub', bold: true, url: 'https://github.com/riya' },
+    ]);
+  });
+
+  it('drops the link markup when the URL is empty', () => {
+    expect(splitInline('[just text]()')).toEqual([{ text: 'just text', bold: false }]);
+  });
+
+  it('stripBold flattens bold and links to plain text', () => {
     expect(stripBold('**Riya** Sharma')).toBe('Riya Sharma');
+    expect(stripBold('[Riya](https://riya.dev) Sharma')).toBe('Riya Sharma');
+  });
+});
+
+describe('parseResume — links', () => {
+  it('keeps link markdown in the contact line (label stripped)', () => {
+    const doc = parseResume(
+      '# Riya Sharma\n**Contact:** riya@email.com | [Portfolio](https://riya.dev)\n\n## Skills\n- React'
+    );
+    expect(doc.contact).toBe('riya@email.com | [Portfolio](https://riya.dev)');
+    expect(splitInline(doc.contact).filter((s) => s.url)).toHaveLength(1);
+  });
+
+  it('keeps link markdown inside bullets', () => {
+    const doc = parseResume('## Projects\n- Finance app — [source](https://github.com/r/f).');
+    expect(doc.sections[0].blocks[0].items[0]).toBe(
+      'Finance app — [source](https://github.com/r/f).'
+    );
   });
 });
 

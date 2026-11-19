@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Pencil } from 'lucide-react';
-import { parseResume, splitBold } from '../lib/resumeParser.js';
+import { parseResume, splitInline } from '../lib/resumeParser.js';
 
 /**
  * ResumePreview — renders the tailored-resume markdown as a paper document
@@ -37,6 +37,7 @@ export const TEMPLATES = {
     dates: 'shrink-0 text-[12px] italic text-neutral-600',
     paragraph: 'text-neutral-800',
     list: 'grid list-disc gap-1 pl-5 marker:text-neutral-500',
+    link: 'text-neutral-800 underline decoration-neutral-400 underline-offset-2 hover:decoration-neutral-700',
     swatchStyle: { fontFamily: "Georgia, serif", color: '#1f2937' },
   },
 
@@ -63,6 +64,7 @@ export const TEMPLATES = {
     dates: 'shrink-0 text-[12px] text-neutral-500',
     paragraph: 'text-neutral-700',
     list: 'grid list-disc gap-1.5 pl-5 marker:text-[#2a7f74]',
+    link: 'text-neutral-800 underline decoration-[#2a7f74]/60 underline-offset-2 hover:text-[#2a7f74]',
     swatchStyle: { color: TEAL, fontWeight: 700 },
   },
 
@@ -89,6 +91,7 @@ export const TEMPLATES = {
     dates: 'shrink-0 text-[10.5px] text-neutral-600',
     paragraph: 'text-neutral-800',
     list: 'grid list-disc gap-0.5 pl-4 marker:text-neutral-500',
+    link: 'text-neutral-800 underline decoration-neutral-400 underline-offset-2 hover:decoration-neutral-700',
     swatchStyle: { fontWeight: 700, letterSpacing: '-0.05em' },
   },
 
@@ -115,6 +118,7 @@ export const TEMPLATES = {
     dates: 'shrink-0 text-[12px] text-neutral-400',
     paragraph: 'text-neutral-700',
     list: 'grid list-disc gap-1.5 pl-5 marker:text-neutral-300',
+    link: 'text-neutral-700 underline decoration-neutral-300 underline-offset-2 hover:decoration-neutral-500',
     swatchStyle: { fontWeight: 300 },
   },
 };
@@ -122,17 +126,26 @@ export const TEMPLATES = {
 export const TEMPLATE_IDS = Object.keys(TEMPLATES);
 export const DEFAULT_TEMPLATE = 'classic';
 
-/** Inline **bold** spans. */
-const Inline = ({ text }) =>
-  splitBold(text).map((seg, i) =>
-    seg.bold ? (
-      <strong key={i} className="font-bold">
-        {seg.text}
-      </strong>
+/**
+ * Inline **bold** spans and [text](url) / bare-URL links.
+ * Links render as real <a href> — visible but quiet (template-tuned
+ * underline), and browsers keep them clickable in print-to-PDF.
+ */
+const Inline = ({ text, t }) =>
+  splitInline(text).map((seg, i) => {
+    const content = seg.bold ? (
+      <strong className="font-bold">{seg.text}</strong>
     ) : (
-      <React.Fragment key={i}>{seg.text}</React.Fragment>
-    )
-  );
+      seg.text
+    );
+    return seg.url ? (
+      <a key={i} href={seg.url} target="_blank" rel="noreferrer" className={t.link}>
+        {content}
+      </a>
+    ) : (
+      <React.Fragment key={i}>{content}</React.Fragment>
+    );
+  });
 
 const Blocks = ({ blocks, t }) => (
   <div className={t.blockGap}>
@@ -142,7 +155,7 @@ const Blocks = ({ blocks, t }) => (
           <ul key={i} className={t.list}>
             {b.items.map((item, j) => (
               <li key={j}>
-                <Inline text={item} />
+                <Inline text={item} t={t} />
               </li>
             ))}
           </ul>
@@ -152,7 +165,7 @@ const Blocks = ({ blocks, t }) => (
           <div key={i} className={`resume-entry ${t.entryGap}`}>
             <div className="flex flex-wrap items-baseline justify-between gap-x-3">
               <h3 className={t.entryTitle}>
-                <Inline text={b.title} />
+                <Inline text={b.title} t={t} />
               </h3>
               {b.dates && <span className={t.dates}>{b.dates}</span>}
             </div>
@@ -165,7 +178,7 @@ const Blocks = ({ blocks, t }) => (
         );
       return (
         <p key={i} className={t.paragraph}>
-          <Inline text={b.text} />
+          <Inline text={b.text} t={t} />
         </p>
       );
     })}
@@ -199,7 +212,11 @@ const ResumePreview = ({ markdown, template = DEFAULT_TEMPLATE, onSectionEdit })
               {doc.name}
             </h1>
           )}
-          {doc.contact && <p className={t.contact}>{doc.contact}</p>}
+          {doc.contact && (
+            <p className={t.contact}>
+              <Inline text={doc.contact} t={t} />
+            </p>
+          )}
         </header>
       )}
 

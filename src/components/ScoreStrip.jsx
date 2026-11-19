@@ -134,6 +134,11 @@ const ScoreStrip = ({ original, tailored, trail = [], streaming }) => {
           <DeltaBadge delta={delta} />
         </div>
       </div>
+      <p className="mt-2.5 text-[11px] leading-relaxed text-slate-500">
+        Honest tailoring without inventing experience typically gains 5–15
+        points. A low ceiling usually means a skills gap — check Keyword gaps
+        below.
+      </p>
     </motion.section>
   );
 };

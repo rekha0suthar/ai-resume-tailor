@@ -143,7 +143,9 @@ export function useTailor() {
       // Final flush
       buffer += decoder.decode();
       processEvents();
-      if (status !== 'error') setStatus((s) => (s === 'streaming' ? 'done' : s));
+      // Functional update: `status` from the outer scope would be stale here
+      // (this callback has [] deps), so decide off the latest value instead.
+      setStatus((s) => (s === 'streaming' ? 'done' : s));
     } catch (err) {
       if (err?.name === 'AbortError') return;
       setStatus('error');

@@ -6,7 +6,7 @@ import { SAMPLE_RESUME, SAMPLE_JD } from '../lib/sample.js';
 
 const MIN_CHARS = 50;
 
-const Field = ({ label, hint, value, onChange, placeholder, rows = 10, extra }) => {
+const Field = ({ label, value, onChange, placeholder, rows = 10, extra }) => {
   const tooShort = value.trim().length > 0 && value.trim().length < MIN_CHARS;
   return (
     <div>

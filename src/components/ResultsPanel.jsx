@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Check, Pencil, Target, KeyRound, MessageSquare, FileText, Download } from 'lucide-react';
+import { Copy, Check, Pencil, Target, KeyRound, MessageSquare, FileText, Download, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ChatRefine from './ChatRefine.jsx';
-import ResumePreview from './ResumePreview.jsx';
+import ResumePreview, { TEMPLATES, TEMPLATE_IDS, DEFAULT_TEMPLATE } from './ResumePreview.jsx';
+import { parseResume } from '../lib/resumeParser.js';
 
 const fadeIn = {
   initial: { opacity: 0, y: 8 },
@@ -156,8 +158,101 @@ const BulletCard = ({ bullet, index }) => {
   );
 };
 
+const TEMPLATE_STORAGE_KEY = 'ai-resume-tailor:template';
+
+const loadStoredTemplate = () => {
+  try {
+    const stored = window.localStorage.getItem(TEMPLATE_STORAGE_KEY);
+    return TEMPLATES[stored] ? stored : DEFAULT_TEMPLATE;
+  } catch {
+    return DEFAULT_TEMPLATE;
+  }
+};
+
+/** Compact chip row for picking the resume template. */
+const TemplatePicker = ({ value, onChange }) => (
+  <div
+    role="radiogroup"
+    aria-label="Resume template"
+    className="mb-4 flex flex-wrap items-center gap-1.5"
+  >
+    {TEMPLATE_IDS.map((id) => {
+      const t = TEMPLATES[id];
+      const active = id === value;
+      return (
+        <button
+          key={id}
+          type="button"
+          role="radio"
+          aria-checked={active}
+          onClick={() => onChange(id)}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
+            active
+              ? 'border-accent/70 bg-accent/15 text-white'
+              : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/25 hover:text-white'
+          }`}
+        >
+          {/* Tiny visual hint: the initial letter, set in the template's own type. */}
+          <span
+            aria-hidden="true"
+            className="flex h-4 w-4 items-center justify-center rounded-[3px] bg-white text-[11px] leading-none text-neutral-800"
+            style={{ fontFamily: t.fontFamily, ...t.swatchStyle }}
+          >
+            {t.label[0]}
+          </span>
+          {t.label}
+        </button>
+      );
+    })}
+  </div>
+);
+
+/**
+ * Hidden copy of the resume rendered straight under <body> for printing.
+ * The print stylesheet hides everything else and shows only this, and the
+ * inline <style> gives @page the selected template's print margins.
+ */
+const ResumePrintSheet = ({ markdown, template }) => {
+  const t = TEMPLATES[template] || TEMPLATES[DEFAULT_TEMPLATE];
+  return createPortal(
+    <div id="resume-print-root" aria-hidden="true">
+      <style>{`@media print { @page { size: A4; margin: ${t.pageMargin}; } }`}</style>
+      <ResumePreview markdown={markdown} template={template} />
+    </div>,
+    document.body
+  );
+};
+
 const TailoredResumeCard = ({ markdown }) => {
   const [copied, setCopied] = useState(false);
+  const [template, setTemplate] = useState(loadStoredTemplate);
+
+  const changeTemplate = (id) => {
+    setTemplate(id);
+    try {
+      window.localStorage.setItem(TEMPLATE_STORAGE_KEY, id);
+    } catch {
+      /* private mode etc. — selection just won't persist */
+    }
+  };
+
+  // Print-to-PDF: swap the document title so the browser's suggested PDF
+  // filename is sensible, print, then restore (finally + afterprint both
+  // fire; restoring twice is harmless).
+  const downloadPdf = () => {
+    const prevTitle = document.title;
+    const restore = () => {
+      document.title = prevTitle;
+    };
+    const name = (parseResume(markdown).name || '').replace(/[\\/:*?"<>|]+/g, ' ').trim();
+    document.title = name ? `${name} - Resume` : 'Tailored Resume';
+    window.addEventListener('afterprint', restore, { once: true });
+    try {
+      window.print();
+    } finally {
+      restore();
+    }
+  };
 
   const copy = async () => {
     try {
@@ -200,8 +295,17 @@ const TailoredResumeCard = ({ markdown }) => {
         >
           <Download size={13} /> Download .md
         </button>
+        <button
+          type="button"
+          onClick={downloadPdf}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-accent/60 hover:text-white"
+        >
+          <Printer size={13} /> Download PDF
+        </button>
       </div>
-      <ResumePreview markdown={markdown} />
+      <TemplatePicker value={template} onChange={changeTemplate} />
+      <ResumePreview markdown={markdown} template={template} />
+      <ResumePrintSheet markdown={markdown} template={template} />
     </Section>
   );
 };

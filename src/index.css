@@ -77,3 +77,53 @@ body::before {
 }
 .glass-hover { transition: border-color 0.25s ease, background 0.25s ease, transform 0.25s ease; }
 .glass-hover:hover { border-color: rgba(74,158,255,0.35); background: rgba(255,255,255,0.06); }
+
+/* ------------------------------------------------------------------ */
+/* Print-to-PDF: show ONLY the hidden resume sheet, as a light paper  */
+/* document — even though the app itself is dark-themed.              */
+/* The per-template @page { size: A4; margin } rule is injected       */
+/* inline by ResumePrintSheet, since it depends on the selection.     */
+/* ------------------------------------------------------------------ */
+
+#resume-print-root { display: none; }
+
+@media print {
+  html, body {
+    height: auto;
+    background: #fff !important;
+    color: #171717 !important;
+  }
+  body::before { display: none !important; } /* dot-grid overlay */
+
+  /* Hide the app (#root, toasts, any other portals) — print only the sheet. */
+  body > *:not(#resume-print-root) { display: none !important; }
+  #resume-print-root { display: block !important; }
+
+  /* The sheet fills the printable area; whitespace comes from @page margins. */
+  #resume-print-root .resume-sheet {
+    max-width: none !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important; /* also drops the Tailwind ring */
+  }
+
+  /* Force the light palette + accents through dark-theme print defaults. */
+  .resume-sheet,
+  .resume-sheet * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Sensible page breaks: never split a role block or the name header;
+     never leave a section heading orphaned at a page bottom. */
+  .resume-entry {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .resume-section-heading {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+}

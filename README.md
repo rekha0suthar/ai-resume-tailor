@@ -2,13 +2,19 @@
 
 [![CI](https://github.com/rekha0suthar/ai-resume-tailor/actions/workflows/ci.yml/badge.svg)](https://github.com/rekha0suthar/ai-resume-tailor/actions/workflows/ci.yml)
 
-Paste (or upload) a resume + a job description, get back **streaming** tailored bullet rewrites, ATS keyword gaps, and likely interview questions. Built end-to-end on free tools — Vite + React + Tailwind on the front, a Vercel Serverless Function calling Groq's Llama 3.3 70B on the back.
+Paste (or upload) a resume + a job description, get back **streaming** tailored bullet rewrites, ATS keyword gaps, likely interview questions, a match score, and a **complete tailored resume rewrite** in markdown. Built end-to-end on free tools — Vite + React + Tailwind on the front, a Vercel Serverless Function calling Groq's gpt-oss-120b on the back.
 
 🔗 **Live**: [ai-resume-tailor-ruby.vercel.app](https://ai-resume-tailor-ruby.vercel.app/)
 
 <!-- TODO: demo GIF -->
 
 ---
+
+## What v2 adds over v1
+
+- **Full tailored resume.** A fifth streamed output: the entire resume rewritten against the JD — missing keywords integrated where honest, bullets reworked per the tailoring advice, original section structure preserved, nothing invented (no fake employers, titles, dates, degrees, or metrics). The prompt orders it last in the JSON so the four lighter sections render first while the long resume is still generating.
+- **Copy & download.** The resume card has "Copy markdown" (clipboard + toast) and "Download .md" (`tailored-resume.md`) actions.
+- **Zero new dependencies.** The markdown (## headings, bullets, bold) is rendered by a ~60-line renderer, not a markdown library.
 
 ## What v1 adds over v0
 
@@ -26,7 +32,7 @@ Paste (or upload) a resume + a job description, get back **streaming** tailored 
 ```
 Browser         Vercel serverless (Node)         Groq Cloud
 -------         ------------------------         ----------
-React UI ─ POST /api/tailor ─▶  api/tailor.js  ──▶  Llama 3.3 70B
+React UI ─ POST /api/tailor ─▶  api/tailor.js  ──▶  gpt-oss-120b
        (SSE chunks)                                  (stream=true)
       ◀──── event: chunk { text } ───────────────────┘
       ◀──── event: done  { ok: true }
@@ -40,7 +46,7 @@ React UI ─ POST /api/tailor ─▶  api/tailor.js  ──▶  Llama 3.3 70B
 - **React 18 + Vite** — modern build chain, instant HMR.
 - **Tailwind CSS** — zero-runtime styling.
 - **Vercel Serverless Functions** (Node 18) — same repo as the frontend.
-- **Groq Cloud** — Llama 3.3 70B (`llama-3.3-70b-versatile`) in JSON mode, streaming.
+- **Groq Cloud** — gpt-oss-120b (`openai/gpt-oss-120b`) in JSON mode, streaming.
 - **lucide-react** icons, **framer-motion** animations, **react-hot-toast** notifications.
 - **zod** for response schema validation, **partial-json** for incremental parsing.
 
@@ -89,7 +95,7 @@ npm test
 
 ## Deploy
 
-Connect the repo to Vercel, add `GROQ_API_KEY` under Environment Variables, deploy. Every `git push origin main` triggers a fresh deploy. Optionally set `GROQ_MODEL` to swap models without a code change (defaults to `llama-3.3-70b-versatile`).
+Connect the repo to Vercel, add `GROQ_API_KEY` under Environment Variables, deploy. Every `git push origin main` triggers a fresh deploy. Optionally set `GROQ_MODEL` to swap models without a code change (defaults to `openai/gpt-oss-120b`).
 
 ## Known limitations & next steps
 
@@ -101,8 +107,9 @@ Connect the repo to Vercel, add `GROQ_API_KEY` under Environment Variables, depl
 
 - [x] **v0** — Paste-in form, structured JSON response, three result panels.
 - [x] **v1** — Streaming SSE, PDF upload, try-with-sample, inline-edit, toast + animations.
-- [ ] **v2** — Template-based resume generation. Pick a template, get a fully formatted resume from your content + the AI's suggestions, download as PDF.
-- [ ] **v3** — Multi-JD comparison (paste 3 JDs, see which one fits best).
+- [x] **v2** — Full tailored resume as a fifth streamed output, with copy-markdown + download-.md actions.
+- [ ] **v3** — Template-based formatting: pick a template, download the tailored resume as PDF.
+- [ ] **v4** — Multi-JD comparison (paste 3 JDs, see which one fits best).
 
 Build notes for each version are published on [dev.to/rekha0suthar](https://dev.to/rekha0suthar).
 

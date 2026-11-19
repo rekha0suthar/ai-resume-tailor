@@ -6,6 +6,9 @@
   "functions": {
     "api/tailor.js": {
       "maxDuration": 30
+    },
+    "api/refine.js": {
+      "maxDuration": 30
     }
   }
 }

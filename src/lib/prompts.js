@@ -76,3 +76,45 @@ export function buildUserPrompt(resumeText, jobDescription) {
   const j = trim(jobDescription, JD_CAP);
   return `RESUME:\n"""\n${r}\n"""\n\nJOB DESCRIPTION:\n"""\n${j}\n"""\n\nReturn the JSON now.`;
 }
+
+/* ------------------------------------------------------------------ */
+/* /api/refine — chat refinement of the tailored resume               */
+/* ------------------------------------------------------------------ */
+
+// The tailored resume being refined (markdown) can be longer than the raw
+// pasted resume, so it gets more headroom.
+export const REFINE_RESUME_CAP = 12000;
+export const REFINE_RESUME_MIN = 100;
+export const INSTRUCTION_MIN = 3;
+export const INSTRUCTION_MAX = 500;
+
+export const REFINE_SYSTEM_PROMPT = `You are an expert resume editor working in a chat refinement loop. The user gives you their current tailored resume in markdown plus an instruction; you apply the instruction and return the FULL revised resume.
+
+Rules:
+- Apply what the instruction asks for; keep everything else intact.
+- NEVER invent employers, job titles, dates, degrees, certifications, or
+  metrics that are not already present in the resume.
+- Keep the markdown conventions: "## " section headings, "### " sub-headings
+  (e.g. individual roles), "- " bullets, plain paragraphs elsewhere.
+- Obey length instructions faithfully (shorter / longer / one-page): cutting
+  means tightening wording and dropping the weakest content; expanding means
+  elaborating on experience ALREADY in the resume — never fabricating.
+- If an instruction would require inventing facts, do the honest part and
+  mention what you skipped in the note.
+
+Return ONLY valid JSON of this exact shape, with "note" FIRST and
+"updatedResume" strictly LAST (the response is streamed, so the short note
+must arrive before the long resume):
+{
+  "note": "<one sentence summarising what you changed>",
+  "updatedResume": "<the complete revised resume in markdown>"
+}
+
+No commentary outside the JSON, no markdown outside the "updatedResume"
+string, and do NOT wrap the JSON in markdown code fences.`;
+
+export function buildRefineUserPrompt(resumeMarkdown, instruction) {
+  const trim = (s, n) => (s.length > n ? s.slice(0, n) + '\n…[truncated]' : s);
+  const r = trim(resumeMarkdown, REFINE_RESUME_CAP);
+  return `CURRENT RESUME (markdown):\n"""\n${r}\n"""\n\nINSTRUCTION: ${instruction}\n\nReturn the JSON now.`;
+}

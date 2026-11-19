@@ -36,6 +36,37 @@ export const TailorResponseSchema = z.object({
   tailoredResume: z.string().min(TAILORED_RESUME_MIN_LENGTH).catch(''),
 });
 
+/* ------------------------------------------------------------------ */
+/* /api/refine response                                                */
+/* ------------------------------------------------------------------ */
+
+export const RefineResponseSchema = z.object({
+  // The note streams in first and is shown live, so no minimum — any string
+  // prefix is renderable. .catch(''): absent / wrong-typed → ''.
+  note: z.string().catch(''),
+  // Same gate as tailoredResume: a full markdown resume, hidden while it's
+  // still a short mid-stream fragment so the preview never collapses to a
+  // few characters.
+  updatedResume: z.string().min(TAILORED_RESUME_MIN_LENGTH).catch(''),
+});
+
+/** Partial-tolerant parser for the refine response. */
+export function partialValidateRefine(rawObj) {
+  if (!rawObj || typeof rawObj !== 'object') return null;
+  try {
+    return RefineResponseSchema.parse(rawObj);
+  } catch {
+    return {
+      note: typeof rawObj.note === 'string' ? rawObj.note : '',
+      updatedResume:
+        typeof rawObj.updatedResume === 'string' &&
+        rawObj.updatedResume.length >= TAILORED_RESUME_MIN_LENGTH
+          ? rawObj.updatedResume
+          : '',
+    };
+  }
+}
+
 /** Partial-tolerant parser: accepts whatever pieces have arrived. */
 export function partialValidate(rawObj) {
   if (!rawObj || typeof rawObj !== 'object') return null;

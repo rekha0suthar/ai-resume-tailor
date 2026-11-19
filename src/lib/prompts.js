@@ -6,7 +6,7 @@
 // Only the serverless function imports this module, so reading process.env
 // here is safe (it never ships in the client bundle). Override the model via
 // the GROQ_MODEL env var when Groq rotates model availability.
-export const DEFAULT_MODEL = 'llama-3.1-8b-instant';
+export const DEFAULT_MODEL = 'openai/gpt-oss-120b';
 export const MODEL = process.env.GROQ_MODEL || DEFAULT_MODEL;
 export const MAX_TOKENS = 4096;
 export const RESUME_CAP = 8000;

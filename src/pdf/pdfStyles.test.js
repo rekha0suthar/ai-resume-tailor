@@ -79,6 +79,40 @@ describe('toWinAnsi', () => {
     expect(toWinAnsi(null)).toBe('');
     expect(toWinAnsi(undefined)).toBe('');
   });
+
+  it('keeps proper en/em dash date ranges intact (they are WinAnsi)', () => {
+    expect(toWinAnsi('April 2024 – June 2026')).toBe('April 2024 – June 2026');
+    expect(toWinAnsi('April 2024 — June 2026')).toBe('April 2024 — June 2026');
+    expect(toWinAnsi('April 2024 - June 2026')).toBe('April 2024 - June 2026');
+  });
+
+  it('maps non-WinAnsi dash lookalikes to a hyphen', () => {
+    // minus sign, hyphen, non-breaking hyphen, figure dash
+    for (const dash of ['−', '‐', '‑', '‒']) {
+      expect(toWinAnsi(`2024 ${dash} 2026`)).toBe('2024 - 2026');
+    }
+    // horizontal bar → em dash
+    expect(toWinAnsi('2024 ― 2026')).toBe('2024 — 2026');
+  });
+
+  it('maps unicode spaces (incl. NNBSP around date dashes) to a plain space', () => {
+    // U+202F narrow no-break space — pdfkit would draw it as an overlapping "/"
+    expect(toWinAnsi('April 2024 – June 2026')).toBe('April 2024 – June 2026');
+    expect(toWinAnsi('a b c')).toBe('a b c'); // thin space, em space
+  });
+
+  it('strips zero-width characters', () => {
+    expect(toWinAnsi('2024​–﻿2026')).toBe('2024–2026');
+  });
+
+  it('NFKD-folds decomposable letters instead of emitting garbage glyphs', () => {
+    expect(toWinAnsi('Priȳa Śah')).toBe('Priya Sah'); // ȳ Ś
+  });
+
+  it('drops anything WinAnsi truly cannot show', () => {
+    expect(toWinAnsi('snow☃man')).toBe('snowman');
+    expect(toWinAnsi('ok 😀')).toBe('ok '); // emoji (surrogate pair)
+  });
 });
 
 describe('resolvePdfTemplate', () => {

@@ -81,12 +81,19 @@ const Entry = ({ entry, t, first }) => (
         <Inline text={entry.title} t={t} baseFont={t.fonts.bold} />
       </Text>
       {entry.dates ? (
+        // flexShrink:0 — the title column (flex:1) yields instead, so the
+        // two can never overlap; maxLines caps a pathological dates string
+        // to one line (never wraps mid-range) and ellipsizes past 55% width.
         <Text
+          maxLines={1}
           style={{
             fontFamily: t.entry.datesFont,
             fontSize: t.entry.datesSize,
             color: t.entry.datesColor,
             textAlign: 'right',
+            flexShrink: 0,
+            maxWidth: '55%',
+            textOverflow: 'ellipsis',
           }}
         >
           {toWinAnsi(entry.dates)}

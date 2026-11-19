@@ -36,22 +36,53 @@ export function pdfFileName(name) {
 }
 
 /**
- * The standard PDF fonts only cover WinAnsi; characters outside it (arrows
- * and the like) would silently drop from the PDF. Map the few plausible
- * ones to ASCII and leave everything else (en/em dashes, bullets, curly
- * quotes, accented Latin are all IN WinAnsi and pass through untouched).
+ * The standard PDF fonts only cover WinAnsi; a character outside it does
+ * NOT silently drop — pdfkit encodes it as `charCode & 0xFF`, so e.g. a
+ * narrow no-break space (U+202F, common around date-range dashes in text
+ * copied out of Word/PDFs) draws as "/" ON TOP of the neighbouring text,
+ * and dash lookalikes (minus sign U+2212, non-breaking hyphen U+2011)
+ * draw as invisible control glyphs with wrong widths. So: map plausible
+ * characters to WinAnsi equivalents, fold anything decomposable (ā → a),
+ * and drop the rest. En/em dashes, bullets, curly quotes, and Latin-1
+ * accents are all IN WinAnsi and pass through untouched.
  */
 const NON_WINANSI_MAP = [
   [/→|➜|➡/g, '->'], // → ➜ ➡
   [/←/g, '<-'], // ←
   [/✓|✔/g, '+'], // ✓ ✔
-  [/●|▪/g, '•'], // normalize bullet variants to the WinAnsi bullet
+  [/●|▪|◦|‣/g, '•'], // normalize bullet variants to the WinAnsi bullet
+  // Dash lookalikes outside WinAnsi → hyphen (en/em dash themselves are
+  // IN WinAnsi, kept as-is — they render correctly in Times AND Helvetica).
+  // U+2010 hyphen, U+2011 non-breaking hyphen, U+2012 figure dash,
+  // U+2212 minus sign, U+FE63/U+FF0D small/fullwidth hyphen-minus.
+  [/[\u2010\u2011\u2012\u2212\uFE63\uFF0D]/g, '-'],
+  [/\u2015/g, '\u2014'], // horizontal bar -> em dash (WinAnsi)
+  // Unicode spaces → plain space: U+2000–200A (en/em/thin…), U+202F narrow
+  // no-break space (the date-range offender), U+205F, U+3000.
+  [/[\u2000-\u200A\u202F\u205F\u3000]/g, ' '],
+  // Zero-width characters, directional marks, and BOM → gone.
+  [/[\u200B-\u200F\u2060\uFEFF]/g, ''],
 ];
+
+/** Everything WinAnsi (CP1252) can encode: ASCII, Latin-1, CP1252 extras. */
+const WINANSI_CHARS =
+  '\\u0009\\u000A\\u000D\\u0020-\\u007E\\u00A0-\\u00FF' +
+  '\\u0152\\u0153\\u0160\\u0161\\u0178\\u017D\\u017E\\u0192\\u02C6\\u02DC' +
+  '\\u2013\\u2014\\u2018\\u2019\\u201A\\u201C\\u201D\\u201E\\u2020\\u2021' +
+  '\\u2022\\u2026\\u2030\\u2039\\u203A\\u20AC\\u2122';
+const NON_WINANSI_RE = new RegExp(`[^${WINANSI_CHARS}]`, 'gu');
+const WINANSI_ONLY_RE = new RegExp(`^[${WINANSI_CHARS}]*$`, 'u');
+
+/** Last resort for a non-WinAnsi char: NFKD-fold it (ā → a); else drop it. */
+const foldChar = (ch) => {
+  const folded = ch.normalize('NFKD').replace(/[̀-ͯ]/g, '');
+  return folded !== ch && WINANSI_ONLY_RE.test(folded) ? folded : '';
+};
 
 export function toWinAnsi(text) {
   let out = String(text ?? '');
   for (const [re, repl] of NON_WINANSI_MAP) out = out.replace(re, repl);
-  return out;
+  return out.replace(NON_WINANSI_RE, foldChar);
 }
 
 const TEAL = '#2a7f74'; // Modern's accent — same value as the preview

@@ -38,6 +38,7 @@ import {
 } from '../src/lib/prompts.js';
 import { clampHistory } from '../src/lib/history.js';
 import { rateLimited, clientIp } from './_lib/ratelimit.js';
+import { groqErrorMessage } from './_lib/groqError.js';
 
 export const config = { maxDuration: 30 };
 
@@ -140,10 +141,10 @@ export default async function handler(req, res) {
     res.end();
   } catch (err) {
     // Log the real error server-side; never leak provider detail to clients.
+    // Quota/rate-limit failures get an honest "try again in a few minutes"
+    // instead of the generic "service unavailable".
     console.error('Groq stream failed:', err);
-    send('error', {
-      error: 'The AI service is unavailable right now — please try again in a moment.',
-    });
+    send('error', { error: groqErrorMessage(err) });
     res.end();
   }
 }

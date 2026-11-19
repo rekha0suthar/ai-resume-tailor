@@ -63,6 +63,11 @@ Paste (or upload) a resume + a job description, and watch a **complete tailored 
 
 ## Architecture
 
+Full request flow, key decisions (SSE-over-POST, prompt-enforced JSON and
+the 1-delta discovery, dual rubric scores, `parseResume` as single source of
+truth, lazy PDF chunk, rate-limiting tradeoff, privacy posture) are in
+**[ARCHITECTURE.md](ARCHITECTURE.md)**. The short version:
+
 ```
 Browser         Vercel serverless (Node)         Groq Cloud
 -------         ------------------------         ----------
@@ -90,7 +95,7 @@ Specifically (verified against the code in `api/`):
 
 - **React 18 + Vite** — modern build chain, instant HMR.
 - **Tailwind CSS** — zero-runtime styling.
-- **Vercel Serverless Functions** (Node 18) — same repo as the frontend.
+- **Vercel Serverless Functions** — same repo as the frontend.
 - **Groq Cloud** — gpt-oss-120b (`openai/gpt-oss-120b`), streaming, prompt-enforced JSON.
 - **lucide-react** icons, **framer-motion** animations, **react-hot-toast** notifications.
 - **zod** for response schema validation, **partial-json** for incremental parsing.
@@ -104,9 +109,12 @@ api/
   refine.js                ← Streaming SSE endpoint (chat refinement)
   _lib/
     ratelimit.js           ← Shared in-memory rate limiter (not a function)
+    groqError.js           ← Quota vs generic upstream-error classifier
 src/
   components/
+    Navbar.jsx
     Hero.jsx
+    HowItWorks.jsx
     TailorForm.jsx
     PdfUpload.jsx
     ResultsPanel.jsx       ← Results IA: score strip, hero, collapsibles
@@ -148,10 +156,13 @@ npm run dev
 
 Open `http://localhost:5173`. The custom Vite plugin in `vite.config.js` routes `/api/*` through your serverless function files, so streaming works locally with no Vercel CLI needed.
 
-Run the unit tests (schema validation + SSE frame parsing) with:
+Run the 129 unit tests (resume parsing, schema validation, score coercion,
+SSE frame parsing, fence stripping, history clamping, PDF style mapping,
+quota-error classification) and the linter with:
 
 ```bash
 npm test
+npm run lint
 ```
 
 ## Deploy
@@ -167,6 +178,7 @@ Vercel's **production branch should be set to `release`**, not `main` (Vercel pr
 - **Rate limiting is best-effort.** The limiter in `api/_lib/ratelimit.js` is an in-memory sliding window, so it's per serverless instance — a cold start resets the count. Enough to stop casual abuse of a free demo; a shared store (e.g. Upstash Redis + `@upstash/ratelimit`) is the production answer.
 - **No auth or accounts.** Everything is anonymous and stateless; nothing you paste is stored.
 - **Model availability shifts.** Groq rotates hosted models; when the default is deprecated, set the `GROQ_MODEL` env var instead of redeploying code.
+- **Free-tier quota can run out.** When Groq's rate limit/quota is exhausted upstream, the UI says so honestly ("free AI quota … temporarily exhausted") instead of a generic failure.
 
 ## Roadmap
 

@@ -24,6 +24,7 @@ const empty = {
   tailored_bullets: [],
   missing_keywords: [],
   interview_questions: [],
+  tailoredResume: '',
 };
 
 export function useTailor() {

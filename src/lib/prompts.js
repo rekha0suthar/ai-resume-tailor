@@ -8,13 +8,15 @@
 // the GROQ_MODEL env var when Groq rotates model availability.
 export const DEFAULT_MODEL = 'openai/gpt-oss-120b';
 export const MODEL = process.env.GROQ_MODEL || DEFAULT_MODEL;
-export const MAX_TOKENS = 4096;
+// 8192: the full tailored resume (output #5) needs the extra headroom, and
+// gpt-oss-120b supports it comfortably.
+export const MAX_TOKENS = 8192;
 export const RESUME_CAP = 8000;
 export const JD_CAP = 6000;
 
 export const SYSTEM_PROMPT = `You are an expert career coach and resume editor. You help job seekers tailor their resume to a specific job description.
 
-Given a candidate's resume and a target job description, you produce four things:
+Given a candidate's resume and a target job description, you produce five things:
 
 1. TAILORED BULLETS — rewrite 3–6 of the candidate's existing resume bullets so they:
    - Foreground the skills/keywords the job description prioritises (without inventing experience).
@@ -38,18 +40,34 @@ Given a candidate's resume and a target job description, you produce four things
 4. OVERALL MATCH SCORE — an integer 0–100 reflecting how well this candidate's
    resume currently aligns with the JD before tailoring.
 
+5. TAILORED RESUME — the candidate's FULL resume rewritten against the job
+   description, as the "tailoredResume" string:
+   - Integrate the missing keywords where they honestly fit the candidate's
+     real experience; rework bullets following your own tailoring advice above.
+   - Keep ALL real experience, education, and contact details from the
+     original resume.
+   - NEVER invent employers, job titles, dates, degrees, or metrics that are
+     not in the original resume.
+   - Preserve the original resume's section structure.
+   - Format as clean markdown: "## " section headings ("### " for sub-headings
+     like individual roles), "- " bullets, plain paragraphs elsewhere.
+
 Be honest. If the resume is weak for the role, say so via the score and the
 missing-keywords section — do NOT invent skills the candidate doesn't have.
 
-Return ONLY valid JSON matching this exact shape:
+Return ONLY valid JSON matching this exact shape, with the keys in EXACTLY
+this order — overall_match_score, tailored_bullets, missing_keywords,
+interview_questions, and tailoredResume strictly LAST (the response is
+streamed, so the lighter sections must arrive before the long resume):
 {
   "overall_match_score": 0,
   "tailored_bullets": [{"original": "", "rewrite": "", "why": ""}],
   "missing_keywords": [{"keyword": "", "importance": "", "suggestion": ""}],
-  "interview_questions": [{"question": "", "what_they_want": "", "prep_tip": ""}]
+  "interview_questions": [{"question": "", "what_they_want": "", "prep_tip": ""}],
+  "tailoredResume": ""
 }
 
-No markdown, no commentary outside the JSON.`;
+No markdown outside the "tailoredResume" string, no commentary outside the JSON.`;
 
 export function buildUserPrompt(resumeText, jobDescription) {
   const trim = (s, n) => (s.length > n ? s.slice(0, n) + '\n…[truncated]' : s);

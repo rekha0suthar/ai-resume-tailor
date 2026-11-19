@@ -2,13 +2,28 @@
 
 [![CI](https://github.com/rekha0suthar/ai-resume-tailor/actions/workflows/ci.yml/badge.svg)](https://github.com/rekha0suthar/ai-resume-tailor/actions/workflows/ci.yml)
 
-Paste (or upload) a resume + a job description, get back **streaming** tailored bullet rewrites, ATS keyword gaps, likely interview questions, a match score, and a **complete tailored resume rewrite** in markdown. Built end-to-end on free tools — Vite + React + Tailwind on the front, a Vercel Serverless Function calling Groq's gpt-oss-120b on the back.
+Paste (or upload) a resume + a job description, and watch a **complete tailored resume** stream onto a real document sheet — scored **before and after** against the JD on a fixed rubric, refinable through chat (whole-resume or one section at a time), and downloadable as a PDF in one of four templates. Keyword gap analysis, rewrite rationale, and interview prep ride along as secondary panels. Built end-to-end on free tools — Vite + React + Tailwind on the front, a Vercel Serverless Function calling Groq's gpt-oss-120b on the back.
 
 🔗 **Live**: [ai-resume-tailor-ruby.vercel.app](https://ai-resume-tailor-ruby.vercel.app/)
 
 <!-- TODO: demo GIF -->
 
 ---
+
+## The flow
+
+1. **Input stage** — paste your resume (or upload a PDF) and the job description. "See a demo" pre-fills both with a curated example.
+2. **Results stage** — a score strip shows `original → tailored` with a delta badge, so the improvement is evident (both scores come from the same explicit rubric: required-skills coverage 40%, relevant experience 30%, keyword alignment 20%, evidence/metrics 10%). Below it, the hero: the tailored resume on a paper sheet (template tabs + **Download PDF** as the primary action) with the refinement chat docked beside it.
+3. **Refine** — type an instruction, tap a section chip, or hover a section heading on the sheet and click the pencil to target just that section ("In the Experience section: …"). Every refinement streams into the preview and returns a fresh score against the *same* JD, appended to the score history.
+4. **Secondary panels** (collapsible, below the hero): Keyword gaps, What changed & why, and Interview prep — in that order, least urgent last.
+
+"Edit inputs" returns to the input stage without losing results; "Start over" clears everything.
+
+## What v5 adds over v4
+
+- **Before → after scoring.** One score per run used to be re-judged from scratch, so re-running could *drop* the number and look like a regression. Now the model returns `original_match_score` (resume as submitted) and `tailored_match_score` (its own rewrite), both judged against an explicit weighted rubric baked into the prompt, and the UI shows the delta. Refinements re-score against the same JD (`updatedScore`) and extend a visible score history.
+- **Word-number guard.** A live run once emitted `"overall_match_score": thirty`. Scores are now coerced (numeric strings, English word-numbers 0–100) and degrade to "not scored" instead of blanking the card; the legacy `overall_match_score` key is still accepted as an alias.
+- **Resume-first information architecture.** The sheet + PDF download is the hero; bullets/keywords/questions moved into collapsible panels below, interview prep last. Per-section refinement via chips and on-sheet pencil affordances. Two-view shell (focused input card ↔ results workspace), honest rate-limit and error cards, skeleton/shimmer streaming states, reduced-motion support.
 
 ## What v4 adds over v3
 
@@ -72,16 +87,18 @@ src/
     Hero.jsx
     TailorForm.jsx
     PdfUpload.jsx
-    ResultsPanel.jsx
+    ResultsPanel.jsx       ← Results IA: score strip, hero, collapsibles
+    ScoreStrip.jsx         ← Before → after score + delta + history
     ResumePreview.jsx      ← Templated resume sheet (preview + print)
-    ChatRefine.jsx         ← Chat panel for iterating on the resume
+    ChatRefine.jsx         ← Docked chat: section chips, prefill, undo
     Footer.jsx
   hooks/
     useTailor.js           ← Streaming state machine (tailor)
-    useRefine.js           ← Chat session: history, versions, streaming
+    useRefine.js           ← Chat session: history, versions, score trail
   lib/
-    prompts.js             ← System prompts + bounds
+    prompts.js             ← System prompts + shared scoring rubric + bounds
     schema.js              ← Zod schemas + partial validators
+    scores.js              ← Score coercion (word-number guard, pure)
     history.js             ← Chat-history clamping (shared client/server)
     resumeParser.js        ← Resume markdown → structure (pure, tested)
     fences.js              ← ```json fence stripping for the accumulator
@@ -128,7 +145,8 @@ Connect the repo to Vercel, add `GROQ_API_KEY` under Environment Variables, depl
 - [x] **v2** — Full tailored resume as a fifth streamed output, with copy-markdown + download-.md actions.
 - [x] **v3** — Chat refinement of the tailored resume: streaming edits, quick actions, history-aware follow-ups, revert.
 - [x] **v4** — Template-based formatting: pick one of four templates, download the tailored resume as PDF (print stylesheet, zero new dependencies).
-- [ ] **v5** — Multi-JD comparison (paste 3 JDs, see which one fits best).
+- [x] **v5** — Before→after scoring on a fixed rubric, resume-first redesign (score strip, docked chat, per-section refinement, collapsible secondary panels, two-view shell).
+- [ ] **v6** — Multi-JD comparison (paste 3 JDs, see which one fits best).
 
 Build notes for each version are published on [dev.to/rekha0suthar](https://dev.to/rekha0suthar).
 

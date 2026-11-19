@@ -3,7 +3,7 @@
  * Used by both client and server to validate the model's output.
  */
 import { z } from 'zod';
-import { coerceScore } from './scores.js';
+import { coerceScore, coerceBreakdown, reconcileScore } from './scores.js';
 
 /**
  * Match-score field: the prompt demands JSON numbers, but a live run once
@@ -15,6 +15,25 @@ import { coerceScore } from './scores.js';
 const ScoreSchema = z
   .preprocess(coerceScore, z.number().min(0).max(100).nullable())
   .catch(null);
+
+/**
+ * Component-breakdown field: coerced all-or-nothing (each component clamped
+ * to its cap); a missing, partial (mid-stream) or garbage breakdown degrades
+ * to null without breaking the sibling score. After parsing, the totals are
+ * reconciled against the breakdowns: when a valid breakdown exists its sum
+ * REPLACES the model's claimed total ("computed beats vibed").
+ */
+const BreakdownSchema = z
+  .preprocess(coerceBreakdown, z.record(z.number()).nullable())
+  .catch(null);
+
+/** Reconcile score/breakdown pairs on a parsed result (sum wins). */
+function reconcile(out, pairs) {
+  for (const [scoreKey, breakdownKey] of pairs) {
+    out[scoreKey] = reconcileScore(out[scoreKey], out[breakdownKey]);
+  }
+  return out;
+}
 
 export const TailoredBulletSchema = z.object({
   original: z.string(),
@@ -40,7 +59,9 @@ export const TAILORED_RESUME_MIN_LENGTH = 200;
 
 export const TailorResponseSchema = z.object({
   original_match_score: ScoreSchema.default(null),
+  original_breakdown: BreakdownSchema.default(null),
   tailored_match_score: ScoreSchema.default(null),
+  tailored_breakdown: BreakdownSchema.default(null),
   tailored_bullets: z.array(TailoredBulletSchema).default([]),
   missing_keywords: z.array(MissingKeywordSchema).default([]),
   interview_questions: z.array(InterviewQuestionSchema).default([]),
@@ -59,8 +80,10 @@ export const RefineResponseSchema = z.object({
   note: z.string().catch(''),
   // Re-score of the revised resume on the same rubric/JD. Optional by
   // design: no JD on the request → the model omits it and the UI keeps the
-  // last known score.
+  // last known score. The breakdown is the updated component breakdown the
+  // model derived from the previous one (consistency anchor).
   updatedScore: ScoreSchema.default(null),
+  updatedBreakdown: BreakdownSchema.default(null),
   // Same gate as tailoredResume: a full markdown resume, hidden while it's
   // still a short mid-stream fragment so the preview never collapses to a
   // few characters.
@@ -70,18 +93,23 @@ export const RefineResponseSchema = z.object({
 /** Partial-tolerant parser for the refine response. */
 export function partialValidateRefine(rawObj) {
   if (!rawObj || typeof rawObj !== 'object') return null;
+  const pairs = [['updatedScore', 'updatedBreakdown']];
   try {
-    return RefineResponseSchema.parse(rawObj);
+    return reconcile(RefineResponseSchema.parse(rawObj), pairs);
   } catch {
-    return {
-      note: typeof rawObj.note === 'string' ? rawObj.note : '',
-      updatedScore: coerceScore(rawObj.updatedScore),
-      updatedResume:
-        typeof rawObj.updatedResume === 'string' &&
-        rawObj.updatedResume.length >= TAILORED_RESUME_MIN_LENGTH
-          ? rawObj.updatedResume
-          : '',
-    };
+    return reconcile(
+      {
+        note: typeof rawObj.note === 'string' ? rawObj.note : '',
+        updatedScore: coerceScore(rawObj.updatedScore),
+        updatedBreakdown: coerceBreakdown(rawObj.updatedBreakdown),
+        updatedResume:
+          typeof rawObj.updatedResume === 'string' &&
+          rawObj.updatedResume.length >= TAILORED_RESUME_MIN_LENGTH
+            ? rawObj.updatedResume
+            : '',
+      },
+      pairs
+    );
   }
 }
 
@@ -104,33 +132,42 @@ function normalizeScoreAliases(rawObj) {
 export function partialValidate(input) {
   if (!input || typeof input !== 'object') return null;
   const rawObj = normalizeScoreAliases(input);
+  const pairs = [
+    ['original_match_score', 'original_breakdown'],
+    ['tailored_match_score', 'tailored_breakdown'],
+  ];
   try {
-    return TailorResponseSchema.parse(rawObj);
+    return reconcile(TailorResponseSchema.parse(rawObj), pairs);
   } catch {
     // Fall back to whatever shapes parse individually.
-    return {
-      original_match_score: coerceScore(rawObj.original_match_score),
-      tailored_match_score: coerceScore(rawObj.tailored_match_score),
-      tailored_bullets: Array.isArray(rawObj.tailored_bullets)
-        ? rawObj.tailored_bullets.filter(
-            (b) => b && typeof b === 'object' && typeof b.rewrite === 'string'
-          )
-        : [],
-      missing_keywords: Array.isArray(rawObj.missing_keywords)
-        ? rawObj.missing_keywords.filter(
-            (k) => k && typeof k === 'object' && typeof k.keyword === 'string'
-          )
-        : [],
-      interview_questions: Array.isArray(rawObj.interview_questions)
-        ? rawObj.interview_questions.filter(
-            (q) => q && typeof q === 'object' && typeof q.question === 'string'
-          )
-        : [],
-      tailoredResume:
-        typeof rawObj.tailoredResume === 'string' &&
-        rawObj.tailoredResume.length >= TAILORED_RESUME_MIN_LENGTH
-          ? rawObj.tailoredResume
-          : '',
-    };
+    return reconcile(
+      {
+        original_match_score: coerceScore(rawObj.original_match_score),
+        original_breakdown: coerceBreakdown(rawObj.original_breakdown),
+        tailored_match_score: coerceScore(rawObj.tailored_match_score),
+        tailored_breakdown: coerceBreakdown(rawObj.tailored_breakdown),
+        tailored_bullets: Array.isArray(rawObj.tailored_bullets)
+          ? rawObj.tailored_bullets.filter(
+              (b) => b && typeof b === 'object' && typeof b.rewrite === 'string'
+            )
+          : [],
+        missing_keywords: Array.isArray(rawObj.missing_keywords)
+          ? rawObj.missing_keywords.filter(
+              (k) => k && typeof k === 'object' && typeof k.keyword === 'string'
+            )
+          : [],
+        interview_questions: Array.isArray(rawObj.interview_questions)
+          ? rawObj.interview_questions.filter(
+              (q) => q && typeof q === 'object' && typeof q.question === 'string'
+            )
+          : [],
+        tailoredResume:
+          typeof rawObj.tailoredResume === 'string' &&
+          rawObj.tailoredResume.length >= TAILORED_RESUME_MIN_LENGTH
+            ? rawObj.tailoredResume
+            : '',
+      },
+      pairs
+    );
   }
 }

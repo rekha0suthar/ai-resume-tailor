@@ -12,6 +12,10 @@
  *   history?:       [{ role: 'user'|'assistant', content }]
  *                            — up to 6 prior turns for iterative edits
  *                              (validated + clamped server-side).
+ *   previousScore?:     number — the total for the resume BEFORE this edit.
+ *   previousBreakdown?: object — its component breakdown; when valid the
+ *                              model UPDATES it instead of re-judging from
+ *                              scratch (validated + clamped server-side).
  * }
  *
  * Response: same SSE protocol as /api/tailor:
@@ -19,7 +23,8 @@
  *   - event: done    data: { ok: true }
  *   - event: error   data: { error }
  *
- * The model returns JSON { note, updatedScore, updatedResume } with the
+ * The model returns JSON { note, updatedScore, updatedBreakdown,
+ * updatedResume } with the
  * one-sentence note FIRST so it streams into the chat bubble while the long
  * resume is still generating. JSON is prompt-enforced, not response_format json_object —
  * json_object mode buffers gpt-oss-120b output into a single end-of-stream
@@ -37,6 +42,7 @@ import {
   JD_CAP,
 } from '../src/lib/prompts.js';
 import { clampHistory } from '../src/lib/history.js';
+import { coerceScore, coerceBreakdown } from '../src/lib/scores.js';
 import { rateLimited, clientIp } from './_lib/ratelimit.js';
 import { groqErrorMessage } from './_lib/groqError.js';
 
@@ -87,6 +93,15 @@ export default async function handler(req, res) {
   // Never trust the wire: drop malformed turns, cap content length, keep
   // only the most recent turns. (buildRefineUserPrompt caps the resume.)
   const history = clampHistory(body?.history);
+  // Consistency anchor: the previous score + component breakdown for the
+  // resume being refined. Clamped/validated server-side — coerceBreakdown
+  // caps each component and rejects malformed shapes entirely, so a hostile
+  // client can't inject prompt text or out-of-range numbers through it.
+  const previousBreakdown = coerceBreakdown(body?.previousBreakdown);
+  const previousScore = coerceScore(body?.previousScore);
+  const previous = previousBreakdown
+    ? { score: previousScore, breakdown: previousBreakdown }
+    : null;
 
   if (resumeMarkdown.length < REFINE_RESUME_MIN) {
     return res.status(400).json({
@@ -124,7 +139,10 @@ export default async function handler(req, res) {
         // Prior turns (user instructions + assistant notes) give the model
         // conversational context for follow-ups like "a bit longer again".
         ...history,
-        { role: 'user', content: buildRefineUserPrompt(resumeMarkdown, instruction, jobDescription) },
+        {
+          role: 'user',
+          content: buildRefineUserPrompt(resumeMarkdown, instruction, jobDescription, previous),
+        },
       ],
       temperature: 0.3,
       max_tokens: MAX_TOKENS,

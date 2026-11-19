@@ -102,3 +102,66 @@ export function coerceScore(value) {
   if (n === null || Number.isNaN(n) || !Number.isFinite(n)) return null;
   return Math.min(100, Math.max(0, Math.round(n)));
 }
+
+/* ------------------------------------------------------------------ */
+/* Component breakdowns — computed scoring                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The four rubric components, with display labels and integer caps. The
+ * caps mirror the rubric weights (40/30/20/10) so a breakdown's sum is a
+ * 0–100 score by construction. Single source of truth for the schema,
+ * the hooks, and the ScoreStrip breakdown panel.
+ */
+export const BREAKDOWN_COMPONENTS = [
+  { key: 'required_skills', label: 'Required skills', cap: 40 },
+  { key: 'relevant_experience', label: 'Relevant experience', cap: 30 },
+  { key: 'keyword_alignment', label: 'Keyword alignment', cap: 20 },
+  { key: 'evidence_metrics', label: 'Evidence & metrics', cap: 10 },
+];
+
+/** Coerce one component value like coerceScore, but clamped to its cap. */
+export function coerceComponent(value, cap) {
+  const n = coerceScore(value);
+  if (n === null) return null;
+  return Math.min(cap, n);
+}
+
+/**
+ * Coerce a model-emitted breakdown object into a clean
+ * { required_skills, relevant_experience, keyword_alignment, evidence_metrics }
+ * with every component an integer within its cap — or null when the input
+ * isn't an object or ANY component is missing/unreadable. All-or-nothing on
+ * purpose: a half-arrived breakdown (mid-stream) must not render as a
+ * low-ball "0" on the missing rows, and a breakdown with a garbage component
+ * can't be summed into an honest total.
+ */
+export function coerceBreakdown(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const out = {};
+  for (const { key, cap } of BREAKDOWN_COMPONENTS) {
+    const n = coerceComponent(value[key], cap);
+    if (n === null) return null;
+    out[key] = n;
+  }
+  return out;
+}
+
+/** Sum of a (coerced) breakdown's components, or null for no breakdown. */
+export function sumBreakdown(breakdown) {
+  const clean = coerceBreakdown(breakdown);
+  if (!clean) return null;
+  return BREAKDOWN_COMPONENTS.reduce((acc, { key }) => acc + clean[key], 0);
+}
+
+/**
+ * Reconcile a model-claimed total with its component breakdown: when a
+ * valid breakdown exists its SUM wins (computed beats vibed — this is the
+ * fix for same-judge score jumps), otherwise fall back to the coerced
+ * total. Returns an integer 0–100 or null.
+ */
+export function reconcileScore(total, breakdown) {
+  const sum = sumBreakdown(breakdown);
+  if (sum !== null) return sum;
+  return coerceScore(total);
+}

@@ -26,12 +26,14 @@ export const INPUT_MIN = 50;
  * refinement's updated score) is judged against the same yardstick —
  * that's what makes before→after comparisons meaningful.
  */
-export const SCORING_RUBRIC = `SCORING RUBRIC — score a resume against the job description as a weighted integer 0–100. Apply the rubric mechanically and consistently; identical inputs must yield the same score:
-- Required-skills coverage (40%): what fraction of the JD's required skills/qualifications the resume demonstrably covers.
-- Relevant experience (30%): how closely the candidate's actual roles, projects, and seniority match the role's responsibilities.
-- Keyword & terminology alignment (20%): whether the resume uses the JD's vocabulary where it honestly applies.
-- Evidence & metrics (10%): concrete, quantified outcomes backing the claims.
-Scores MUST be JSON numbers (e.g. 42) — never words ("forty-two"), never strings ("42"), never ranges.`;
+export const SCORING_RUBRIC = `SCORING RUBRIC — score a resume against the job description as FOUR integer components plus their total. Apply the rubric mechanically and consistently; identical inputs must yield the same components:
+- "required_skills" (integer 0–40): count the JD's explicitly required skills/qualifications, then count how many of them the resume demonstrates with evidence; score proportionally (all of them → 40, half → 20, none → 0).
+- "relevant_experience" (integer 0–30): how closely the candidate's actual roles, projects, and seniority match the role's responsibilities — 30 is near-identical work at the right seniority, ~15 is adjacent work or a seniority gap, 0 is unrelated experience.
+- "keyword_alignment" (integer 0–20): what fraction of the JD's key terminology the resume uses where it honestly applies; score proportionally to coverage.
+- "evidence_metrics" (integer 0–10): concrete, quantified outcomes backing the claims — 10 when most major claims carry real numbers, ~5 when some do, 0 when none do.
+A component breakdown is a JSON object of exactly this shape:
+{"required_skills": 0, "relevant_experience": 0, "keyword_alignment": 0, "evidence_metrics": 0}
+Each component MUST NOT exceed its cap. Every total score field MUST equal the exact sum of the four components of its breakdown — compute the sum, do not estimate it. All scores MUST be JSON numbers (e.g. 18) — never words ("eighteen"), never strings ("18"), never ranges.`;
 
 export const SYSTEM_PROMPT = `You are an expert career coach and resume editor. You help job seekers tailor their resume to a specific job description.
 
@@ -39,14 +41,21 @@ ${SCORING_RUBRIC}
 
 Given a candidate's resume and a target job description, you produce six things:
 
-1. ORIGINAL MATCH SCORE — "original_match_score": the resume AS SUBMITTED
-   scored against the JD using the rubric above.
+1. ORIGINAL MATCH SCORE — "original_match_score" + "original_breakdown":
+   the resume AS SUBMITTED scored against the JD using the rubric above.
+   "original_breakdown" is the component breakdown; "original_match_score"
+   is the exact sum of its four components.
 
-2. TAILORED MATCH SCORE — "tailored_match_score": YOUR TAILORED VERSION of
-   the resume (output #6 below) scored against the JD using the SAME rubric.
-   Score only honest gains: integrating real experience and aligned
-   terminology raises the score; gaps the candidate genuinely has (missing
-   required skills, missing experience) must keep holding it down.
+2. TAILORED MATCH SCORE — "tailored_match_score" + "tailored_breakdown":
+   YOUR TAILORED VERSION of the resume (output #6 below) scored against the
+   JD using the SAME rubric. "tailored_breakdown" is its component
+   breakdown; "tailored_match_score" is the exact sum of its components.
+   Score only honest gains: the tailored version must be credited fully for
+   honestly integrated keywords and evidence — but components for skills
+   the candidate genuinely lacks must NOT rise. Tailoring mainly moves
+   keyword_alignment and evidence_metrics; required_skills and
+   relevant_experience rise only when real, previously unstated experience
+   was surfaced.
 
 3. TAILORED BULLETS — rewrite 3–6 of the candidate's existing resume bullets so they:
    - Foreground the skills/keywords the job description prioritises (without inventing experience).
@@ -91,13 +100,16 @@ Be honest. If the resume is weak for the role, say so via the score and the
 missing-keywords section — do NOT invent skills the candidate doesn't have.
 
 Return ONLY valid JSON matching this exact shape, with the keys in EXACTLY
-this order — original_match_score, tailored_match_score, tailored_bullets,
-missing_keywords, interview_questions, and tailoredResume strictly LAST (the
-response is streamed, so the scores and lighter sections must arrive before
-the long resume). Both scores are integers 0–100 as JSON NUMBERS:
+this order — original_match_score, original_breakdown, tailored_match_score,
+tailored_breakdown, tailored_bullets, missing_keywords, interview_questions,
+and tailoredResume strictly LAST (the response is streamed, so the scores
+and lighter sections must arrive before the long resume). Both totals are
+integers 0–100 as JSON NUMBERS, each the exact sum of its breakdown:
 {
   "original_match_score": 0,
+  "original_breakdown": {"required_skills": 0, "relevant_experience": 0, "keyword_alignment": 0, "evidence_metrics": 0},
   "tailored_match_score": 0,
+  "tailored_breakdown": {"required_skills": 0, "relevant_experience": 0, "keyword_alignment": 0, "evidence_metrics": 0},
   "tailored_bullets": [{"original": "", "rewrite": "", "why": ""}],
   "missing_keywords": [{"keyword": "", "importance": "", "suggestion": ""}],
   "interview_questions": [{"question": "", "what_they_want": "", "prep_tip": ""}],
@@ -150,9 +162,17 @@ Rules:
   ONLY that section; leave every other section untouched.
 - If an instruction would require inventing facts, do the honest part and
   mention what you skipped in the note.
-- "updatedScore": score the REVISED resume against the provided job
-  description using the rubric above, as a JSON NUMBER 0–100. If no job
-  description is provided, omit the "updatedScore" key entirely.
+- Re-scoring: the user message includes the PREVIOUS component breakdown and
+  previous total for the resume BEFORE your edit. Re-score by UPDATING that
+  previous breakdown — adjust ONLY the components plausibly affected by this
+  edit, each by at most a few points; unrelated components MUST keep their
+  previous values exactly. A cosmetic edit (shortening, rewording, layout)
+  barely moves any component. Output "updatedBreakdown" (the updated
+  component breakdown) and "updatedScore" (the EXACT sum of its four
+  components, a JSON NUMBER 0–100). If no previous breakdown is provided,
+  score the revised resume from scratch with the rubric above. If no job
+  description is provided, omit both "updatedScore" and "updatedBreakdown"
+  entirely.
 
 Return ONLY valid JSON of this exact shape, with "note" FIRST and
 "updatedResume" strictly LAST (the response is streamed, so the short note
@@ -160,18 +180,37 @@ and score must arrive before the long resume):
 {
   "note": "<one sentence summarising what you changed>",
   "updatedScore": 0,
+  "updatedBreakdown": {"required_skills": 0, "relevant_experience": 0, "keyword_alignment": 0, "evidence_metrics": 0},
   "updatedResume": "<the complete revised resume in markdown>"
 }
 
 No commentary outside the JSON, no markdown outside the "updatedResume"
 string, and do NOT wrap the JSON in markdown code fences.`;
 
-export function buildRefineUserPrompt(resumeMarkdown, instruction, jobDescription = '') {
+/**
+ * @param previous  optional { score, breakdown } for the resume BEFORE this
+ *                  edit — the consistency anchor: the model updates this
+ *                  breakdown instead of re-judging from scratch, so a
+ *                  cosmetic edit can't swing the total by 30 points.
+ *                  (Caller — api/refine.js — has already clamped both.)
+ */
+export function buildRefineUserPrompt(
+  resumeMarkdown,
+  instruction,
+  jobDescription = '',
+  previous = null
+) {
   const trim = (s, n) => (s.length > n ? s.slice(0, n) + '\n…[truncated]' : s);
   const r = trim(resumeMarkdown, REFINE_RESUME_CAP);
   const jd = jobDescription ? trim(jobDescription, JD_CAP) : '';
   const jdBlock = jd
     ? `\n\nJOB DESCRIPTION (score the revised resume against this):\n"""\n${jd}\n"""`
     : '';
-  return `CURRENT RESUME (markdown):\n"""\n${r}\n"""${jdBlock}\n\nINSTRUCTION: ${instruction}\n\nReturn the JSON now.`;
+  const prevBlock =
+    jd && previous?.breakdown
+      ? `\n\nPREVIOUS SCORE of this resume BEFORE your edit — total ${
+          previous.score ?? 'unknown'
+        }, breakdown ${JSON.stringify(previous.breakdown)}. Update THIS breakdown; change only components this edit plausibly affects, each by at most a few points.`
+      : '';
+  return `CURRENT RESUME (markdown):\n"""\n${r}\n"""${jdBlock}${prevBlock}\n\nINSTRUCTION: ${instruction}\n\nReturn the JSON now.`;
 }

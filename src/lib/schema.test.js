@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { partialValidate, TAILORED_RESUME_MIN_LENGTH } from './schema.js';
+import {
+  partialValidate,
+  partialValidateRefine,
+  TAILORED_RESUME_MIN_LENGTH,
+} from './schema.js';
 
 const completeResume = [
   '## Summary',
@@ -113,5 +117,52 @@ describe('partialValidate', () => {
     expect(partialValidate(undefined)).toBeNull();
     expect(partialValidate('a string')).toBeNull();
     expect(partialValidate(42)).toBeNull();
+  });
+});
+
+describe('partialValidateRefine', () => {
+  const full = { note: 'Shortened the summary.', updatedResume: completeResume };
+
+  it('passes through a complete valid object', () => {
+    expect(partialValidateRefine(full)).toEqual(full);
+  });
+
+  it('keeps a partial (still-streaming) note with no resume yet', () => {
+    const out = partialValidateRefine({ note: 'Shortened the su' });
+    expect(out.note).toBe('Shortened the su');
+    expect(out.updatedResume).toBe('');
+  });
+
+  it('hides a truncated (still-streaming) updatedResume', () => {
+    const out = partialValidateRefine({ note: 'Done.', updatedResume: '## Summ' });
+    expect(out.note).toBe('Done.');
+    expect(out.updatedResume).toBe('');
+  });
+
+  it('keeps a complete updatedResume', () => {
+    expect(completeResume.length).toBeGreaterThanOrEqual(TAILORED_RESUME_MIN_LENGTH);
+    expect(partialValidateRefine(full).updatedResume).toBe(completeResume);
+  });
+
+  it('drops wrong-typed fields without crashing', () => {
+    const out = partialValidateRefine({ note: 42, updatedResume: ['nope'] });
+    expect(out).toEqual({ note: '', updatedResume: '' });
+  });
+
+  it('salvages a valid resume when the sibling field is wrong-typed', () => {
+    const out = partialValidateRefine({ note: 42, updatedResume: completeResume });
+    expect(out.note).toBe('');
+    expect(out.updatedResume).toBe(completeResume);
+  });
+
+  it('returns all defaults for an empty object', () => {
+    expect(partialValidateRefine({})).toEqual({ note: '', updatedResume: '' });
+  });
+
+  it('returns null for garbage input', () => {
+    expect(partialValidateRefine(null)).toBeNull();
+    expect(partialValidateRefine(undefined)).toBeNull();
+    expect(partialValidateRefine('a string')).toBeNull();
+    expect(partialValidateRefine(42)).toBeNull();
   });
 });

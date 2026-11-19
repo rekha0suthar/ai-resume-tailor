@@ -18,6 +18,7 @@ import { useCallback, useRef, useState } from 'react';
 import { parse, ALL } from 'partial-json';
 import { partialValidate } from '../lib/schema.js';
 import { parseSSE } from '../lib/sse.js';
+import { stripJsonFences } from '../lib/fences.js';
 
 const empty = {
   overall_match_score: 0,
@@ -105,7 +106,9 @@ export function useTailor() {
           accumulator += parsed.text;
           setTokens((n) => n + Math.max(1, Math.round(parsed.text.length / 4)));
           try {
-            const partial = parse(accumulator, ALL);
+            // Without json_object mode the model may wrap the JSON in a
+            // ```json fence — strip it before the partial parse.
+            const partial = parse(stripJsonFences(accumulator), ALL);
             const validated = partialValidate(partial);
             if (validated) setResult(validated);
           } catch {
@@ -113,7 +116,7 @@ export function useTailor() {
           }
         } else if (event === 'done') {
           try {
-            const final = JSON.parse(accumulator);
+            const final = JSON.parse(stripJsonFences(accumulator));
             const validated = partialValidate(final);
             if (validated) setResult(validated);
           } catch {

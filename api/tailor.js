@@ -12,8 +12,9 @@
  * chunk, so tailored bullets / keyword gaps / interview questions appear in
  * the UI as soon as each one is complete in the model's output.
  *
- * Groq Llama 3.3 70B in JSON mode produces well-formed JSON in roughly 1.5s.
- * Streaming makes the perceived latency about 200ms (first token).
+ * JSON is prompt-enforced rather than requested via response_format — see
+ * the note on the Groq call below for why (json_object mode buffers the
+ * whole completion into a single delta on gpt-oss-120b).
  */
 import Groq from 'groq-sdk';
 import { MODEL, MAX_TOKENS, SYSTEM_PROMPT, buildUserPrompt } from '../src/lib/prompts.js';
@@ -125,7 +126,11 @@ export default async function handler(req, res) {
       ],
       temperature: 0.4,
       max_tokens: MAX_TOKENS,
-      response_format: { type: 'json_object' },
+      // NO response_format here, deliberately: with { type: 'json_object' }
+      // Groq delivers gpt-oss-120b output as ONE content delta at the very
+      // end (measured: 1 delta vs ~100 without it), which kills progressive
+      // rendering. The prompt enforces JSON instead, and the client strips
+      // stray ```json fences + parses tolerantly (partial-json).
       stream: true,
     });
 

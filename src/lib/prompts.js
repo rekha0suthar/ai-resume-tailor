@@ -67,7 +67,8 @@ streamed, so the lighter sections must arrive before the long resume):
   "tailoredResume": ""
 }
 
-No markdown outside the "tailoredResume" string, no commentary outside the JSON.`;
+No markdown outside the "tailoredResume" string, no commentary outside the
+JSON, and do NOT wrap the JSON in markdown code fences.`;
 
 export function buildUserPrompt(resumeText, jobDescription) {
   const trim = (s, n) => (s.length > n ? s.slice(0, n) + '\n…[truncated]' : s);

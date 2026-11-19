@@ -9,9 +9,11 @@
 export const DEFAULT_MODEL = 'openai/gpt-oss-120b';
 export const MODEL =
   (typeof process !== 'undefined' && process.env.GROQ_MODEL) || DEFAULT_MODEL;
-// 8192: the full tailored resume (output #5) needs the extra headroom, and
-// gpt-oss-120b supports it comfortably.
-export const MAX_TOKENS = 8192;
+// 4096, deliberately: Groq's free-tier limiter counts the RESERVED budget
+// against the 8k tokens-per-minute window, so 8192 made every request look
+// maximal and back-to-back operations collide with 429s. Measured outputs
+// (all five sections incl. the full tailored resume) fit well under 4096.
+export const MAX_TOKENS = 4096;
 export const RESUME_CAP = 8000;
 export const JD_CAP = 6000;
 // Minimum characters for the resume and the JD — shared by the form's

@@ -17,7 +17,7 @@
  */
 import { useCallback, useRef, useState } from 'react';
 import { parse, ALL } from 'partial-json';
-import { partialValidate } from '../lib/schema.js';
+import { partialValidate, isBlankTailorResult } from '../lib/schema.js';
 import { parseSSE, httpErrorMessage } from '../lib/sse.js';
 import { stripJsonFences } from '../lib/fences.js';
 
@@ -93,6 +93,25 @@ export function useTailor() {
     const decoder = new TextDecoder();
     let buffer = '';
     let accumulator = '';
+    // Mirror of the last validated result (state can't be read back here).
+    let latest = null;
+    // Set once a done/error event decides the outcome, so the post-loop
+    // fallback doesn't second-guess it.
+    let terminal = false;
+
+    // A `done` after a truncated stream can leave the page with nothing to
+    // render — that's a failure (retry card), not a successful empty result.
+    const finish = () => {
+      terminal = true;
+      if (isBlankTailorResult(latest)) {
+        setStatus('error');
+        setError(
+          'The response was cut off before any results arrived. This is usually a transient model hiccup — try again.'
+        );
+      } else {
+        setStatus('done');
+      }
+    };
 
     const processEvents = () => {
       const { events, rest } = parseSSE(buffer);
@@ -112,7 +131,10 @@ export function useTailor() {
             // ```json fence — strip it before the partial parse.
             const partial = parse(stripJsonFences(accumulator), ALL);
             const validated = partialValidate(partial);
-            if (validated) setResult(validated);
+            if (validated) {
+              latest = validated;
+              setResult(validated);
+            }
           } catch {
             /* not parseable yet — wait for more */
           }
@@ -120,12 +142,16 @@ export function useTailor() {
           try {
             const final = JSON.parse(stripJsonFences(accumulator));
             const validated = partialValidate(final);
-            if (validated) setResult(validated);
+            if (validated) {
+              latest = validated;
+              setResult(validated);
+            }
           } catch {
             /* keep last partial */
           }
-          setStatus('done');
+          finish();
         } else if (event === 'error') {
+          terminal = true;
           setStatus('error');
           setError(parsed.error || 'Upstream error.');
         }
@@ -142,9 +168,9 @@ export function useTailor() {
       // Final flush
       buffer += decoder.decode();
       processEvents();
-      // Functional update: `status` from the outer scope would be stale here
-      // (this callback has [] deps), so decide off the latest value instead.
-      setStatus((s) => (s === 'streaming' ? 'done' : s));
+      // Stream closed without a done/error event — same blank-vs-content
+      // decision as an explicit done.
+      if (!terminal) finish();
     } catch (err) {
       if (err?.name === 'AbortError') return;
       setStatus('error');

@@ -114,6 +114,25 @@ export function partialValidateRefine(rawObj) {
 }
 
 /**
+ * True when a (validated) tailor result carries nothing the results page can
+ * render — no scores, no bullets, no keywords, no questions, no resume. A
+ * stream that truncates before any parseable content but still ends with a
+ * `done` event produces exactly this shape; the UI must treat it as a
+ * failure (retry card), not a successful empty page.
+ */
+export function isBlankTailorResult(result) {
+  if (!result || typeof result !== 'object') return true;
+  return (
+    typeof result.original_match_score !== 'number' &&
+    typeof result.tailored_match_score !== 'number' &&
+    !result.tailored_bullets?.length &&
+    !result.missing_keywords?.length &&
+    !result.interview_questions?.length &&
+    !result.tailoredResume
+  );
+}
+
+/**
  * Back-compat: older responses (and the v≤4 prompt) carried a single
  * "overall_match_score" — treat it as the ORIGINAL score when the new key
  * is absent, so a cached/old response still lights up the before side.

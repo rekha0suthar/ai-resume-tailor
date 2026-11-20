@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   partialValidate,
   partialValidateRefine,
+  isBlankTailorResult,
   TAILORED_RESUME_MIN_LENGTH,
 } from './schema.js';
 
@@ -332,5 +333,45 @@ describe('partialValidateRefine', () => {
     expect(partialValidateRefine(undefined)).toBeNull();
     expect(partialValidateRefine('a string')).toBeNull();
     expect(partialValidateRefine(42)).toBeNull();
+  });
+});
+
+describe('isBlankTailorResult', () => {
+  it('is blank for null, non-objects, and the empty-result shape', () => {
+    expect(isBlankTailorResult(null)).toBe(true);
+    expect(isBlankTailorResult(undefined)).toBe(true);
+    expect(isBlankTailorResult(partialValidate({}))).toBe(true);
+  });
+
+  it('is blank for a truncated stream that never produced content', () => {
+    // What partialValidate yields when the accumulator was cut mid-key:
+    // every field degrades to its empty default.
+    const out = partialValidate({ original_match_sc: undefined });
+    expect(isBlankTailorResult(out)).toBe(true);
+  });
+
+  it('is NOT blank once any renderable piece exists', () => {
+    expect(isBlankTailorResult(partialValidate({ original_match_score: 45 }))).toBe(false);
+    expect(isBlankTailorResult(partialValidate({ tailored_match_score: 78 }))).toBe(false);
+    expect(
+      isBlankTailorResult(
+        partialValidate({ tailored_bullets: [{ original: 'a', rewrite: 'b' }] })
+      )
+    ).toBe(false);
+    expect(
+      isBlankTailorResult(partialValidate({ missing_keywords: [{ keyword: 'K8s' }] }))
+    ).toBe(false);
+    expect(
+      isBlankTailorResult(partialValidate({ interview_questions: [{ question: 'Q?' }] }))
+    ).toBe(false);
+    expect(
+      isBlankTailorResult(partialValidate({ tailoredResume: completeResume }))
+    ).toBe(false);
+  });
+
+  it('treats a sub-minimum resume fragment alone as blank (it is hidden by the UI)', () => {
+    const out = partialValidate({ tailoredResume: 'too short' });
+    expect(out.tailoredResume).toBe('');
+    expect(isBlankTailorResult(out)).toBe(true);
   });
 });

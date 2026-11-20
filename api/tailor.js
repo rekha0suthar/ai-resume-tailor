@@ -93,7 +93,10 @@ export default async function handler(req, res) {
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: buildUserPrompt(resumeText, jobDescription) },
       ],
-      temperature: 0.4,
+      // 0.3, matching /api/refine: the same call that writes the resume also
+      // judges it, and the judging half wants stability more than the prose
+      // wants flair.
+      temperature: 0.3,
       max_tokens: MAX_TOKENS,
       // gpt-oss models spend HIDDEN reasoning tokens from the same
       // max_tokens budget; at default effort the smaller model burned most

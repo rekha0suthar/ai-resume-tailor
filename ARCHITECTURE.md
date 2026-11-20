@@ -48,8 +48,11 @@ prompt enforces the JSON shape instead, and the client compensates for the
 two failure modes that opens up: stray ```` ```json ```` fences
 (`src/lib/fences.js` strips them, including partial trailing fences
 mid-stream) and occasional word-numbers for scores (`src/lib/scores.js`
-coerces `"thirty"` → 30, observed in a live run). Key order is prompt-pinned
-so the scores and light cards stream before the long resume.
+coerces `"thirty"` → 30, observed in a live run). Key order is prompt-pinned:
+the original score and light cards stream before the long resume, and the
+tailored breakdown + score come LAST, after `tailoredResume` — the model
+judges the resume it actually wrote (emitting the score first made it a
+prediction anchored to the original breakdown, measured ~17 points low).
 
 **Component-based computed scores instead of a single vibed number.** v≤4
 returned one eyeballed 0–100 score, re-judged from scratch per call — a

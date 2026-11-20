@@ -46,37 +46,26 @@ Given a candidate's resume and a target job description, you produce six things:
    "original_breakdown" is the component breakdown; "original_match_score"
    is the exact sum of its four components.
 
-2. TAILORED MATCH SCORE — "tailored_match_score" + "tailored_breakdown":
-   YOUR TAILORED VERSION of the resume (output #6 below) scored against the
-   JD using the SAME rubric. "tailored_breakdown" is its component
-   breakdown; "tailored_match_score" is the exact sum of its components.
-   Score only honest gains: the tailored version must be credited fully for
-   honestly integrated keywords and evidence — but components for skills
-   the candidate genuinely lacks must NOT rise. Tailoring mainly moves
-   keyword_alignment and evidence_metrics; required_skills and
-   relevant_experience rise only when real, previously unstated experience
-   was surfaced.
-
-3. TAILORED BULLETS — rewrite 3–6 of the candidate's existing resume bullets so they:
+2. TAILORED BULLETS — rewrite 3–6 of the candidate's existing resume bullets so they:
    - Foreground the skills/keywords the job description prioritises (without inventing experience).
    - Use the job description's vocabulary where it honestly fits the candidate's work.
    - Lead with the strongest verb and keep concrete metrics where they exist.
    - Stay one line, ≤ 32 words.
    For each, include the original line, your rewrite, and a short reason ("why").
 
-4. MISSING KEYWORDS — list the 4–8 most important skills/concepts from the job
+3. MISSING KEYWORDS — list the 4–8 most important skills/concepts from the job
    description that are NOT clearly present in the resume. For each, mark
    importance ("must-have" | "nice-to-have") and give one short, actionable
    suggestion (e.g. "Add a 1-line bullet about your school project on X" or
    "Worth a 2-week side project").
 
-5. INTERVIEW QUESTIONS — predict 5 likely interview questions a hiring manager
+4. INTERVIEW QUESTIONS — predict 5 likely interview questions a hiring manager
    would ask, given this resume + JD pairing. For each, include:
    - "question": the question itself.
    - "what_they_want": one sentence on what the interviewer is really probing.
    - "prep_tip": one concrete prep suggestion.
 
-6. TAILORED RESUME — the candidate's FULL resume rewritten against the job
+5. TAILORED RESUME — the candidate's FULL resume rewritten against the job
    description, as the "tailoredResume" string:
    - Integrate the missing keywords where they honestly fit the candidate's
      real experience; rework bullets following your own tailoring advice above.
@@ -96,24 +85,40 @@ Given a candidate's resume and a target job description, you produce six things:
    - Format as clean markdown: "## " section headings ("### " for sub-headings
      like individual roles), "- " bullets, plain paragraphs elsewhere.
 
+6. TAILORED MATCH SCORE — "tailored_breakdown" + "tailored_match_score":
+   the tailoredResume you JUST WROTE in output #5 scored against the JD
+   using the SAME rubric. Produce "tailored_breakdown" by UPDATING
+   "original_breakdown" — adjust a component ONLY when a specific edit you
+   actually made in the tailoredResume above justifies the change; every
+   other component MUST keep its original value exactly. Score only honest
+   gains: credit honestly integrated keywords and evidence fully, but
+   components for skills the candidate genuinely lacks must NOT rise.
+   Tailoring mainly moves keyword_alignment and evidence_metrics;
+   required_skills and relevant_experience rise only when real, previously
+   unstated experience was surfaced. "tailored_match_score" is the exact
+   sum of the four components of "tailored_breakdown".
+
 Be honest. If the resume is weak for the role, say so via the score and the
 missing-keywords section — do NOT invent skills the candidate doesn't have.
 
 Return ONLY valid JSON matching this exact shape, with the keys in EXACTLY
-this order — original_match_score, original_breakdown, tailored_match_score,
-tailored_breakdown, tailored_bullets, missing_keywords, interview_questions,
-and tailoredResume strictly LAST (the response is streamed, so the scores
-and lighter sections must arrive before the long resume). Both totals are
-integers 0–100 as JSON NUMBERS, each the exact sum of its breakdown:
+this order — original_match_score, original_breakdown, tailored_bullets,
+missing_keywords, interview_questions, tailoredResume, tailored_breakdown,
+and tailored_match_score strictly LAST. This order matters: the response is
+streamed, so the original score and lighter sections must arrive before the
+long resume — and the tailored resume must be fully WRITTEN before you judge
+it, with the breakdown emitted before its total so the sum comes from the
+components you actually produced. Both totals are integers 0–100 as JSON
+NUMBERS, each the exact sum of its breakdown:
 {
   "original_match_score": 0,
   "original_breakdown": {"required_skills": 0, "relevant_experience": 0, "keyword_alignment": 0, "evidence_metrics": 0},
-  "tailored_match_score": 0,
-  "tailored_breakdown": {"required_skills": 0, "relevant_experience": 0, "keyword_alignment": 0, "evidence_metrics": 0},
   "tailored_bullets": [{"original": "", "rewrite": "", "why": ""}],
   "missing_keywords": [{"keyword": "", "importance": "", "suggestion": ""}],
   "interview_questions": [{"question": "", "what_they_want": "", "prep_tip": ""}],
-  "tailoredResume": ""
+  "tailoredResume": "",
+  "tailored_breakdown": {"required_skills": 0, "relevant_experience": 0, "keyword_alignment": 0, "evidence_metrics": 0},
+  "tailored_match_score": 0
 }
 
 No markdown outside the "tailoredResume" string, no commentary outside the
